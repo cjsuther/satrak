@@ -1,0 +1,17 @@
+# Configuración real con secretos
+/config/config.php
+
+# Logs y storage (se conserva la carpeta, se ignoran los logs)
+/storage/*
+!/storage/.gitkeep
+
+# Dependencias (descomentar la siguiente línea si vas a versionar vendor/ por hosting sin Composer)
+/vendor/
+
+# Build de deploy (se regenera con build-deploy.sh)
+/dist/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.swp

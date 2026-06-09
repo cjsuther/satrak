@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /contacto/enviar
+
+Sitemap: https://satrak.online/sitemap.xml

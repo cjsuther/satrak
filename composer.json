@@ -1,0 +1,13 @@
+{
+  "name": "satrak/sitio-institucional",
+  "description": "Sitio institucional y captación de leads de Satrak.",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.1",
+    "phpmailer/phpmailer": "^6.9"
+  },
+  "config": {
+    "optimize-autoloader": true
+  }
+}
