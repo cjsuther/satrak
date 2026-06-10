@@ -1,0 +1,20 @@
+# Dependencias
+/vendor/
+
+# Configuración real con secretos (usar config.example.php como plantilla)
+/config/config.php
+
+# Logs y temporales
+/storage/logs/*
+!/storage/logs/.gitkeep
+
+# Cache de Twig (si se activa en prod)
+/storage/cache/*
+!/storage/cache/.gitkeep
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Panel{% endblock %} · Satrak</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=Space+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/app.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {#
+     Shell del panel (sidebar + topbar). Esqueleto para fases siguientes;
+     el menú real por rol, la campana de notificaciones y el selector de
+     empresa (super admin) se construyen en la Fase 2.
+  #}
+  <div class="app-shell">
+    {% block sidebar %}{% endblock %}
+    <div class="app-main">
+      {% block topbar %}{% endblock %}
+      <main class="app-content container">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

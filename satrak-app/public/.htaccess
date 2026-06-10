@@ -1,0 +1,45 @@
+# Satrak — Plataforma de Tracking
+# .htaccess del document root (public/). Apache 2.4+.
+
+# ---------------------------------------------------------------- Rewrite
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Forzar HTTPS (en Hostinger detrás del proxy SSL).
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Servir archivos/carpetas existentes tal cual...
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # ...y todo lo demás al front controller.
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# ---------------------------------------------------- Cabeceras de seguridad
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Permissions-Policy "geolocation=(self), microphone=(), camera=()"
+
+    # CSP base: permite Leaflet (CDN unpkg) y tiles de OpenStreetMap.
+    # Ajustar si se sirve Leaflet local o se agregan orígenes.
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' https://unpkg.com; connect-src 'self'; frame-ancestors 'self'"
+</IfModule>
+
+# --------------------------------------------------------- Endurecimiento
+# Sin listados de directorio.
+Options -Indexes
+
+# Bloquear acceso a archivos sensibles si quedaran bajo public por error.
+<FilesMatch "(^\.|\.(ini|log|sh|sql|md|lock|json|dist|example)$|config\.php)">
+    Require all denied
+</FilesMatch>
+
+# UTF-8 por defecto.
+AddDefaultCharset UTF-8

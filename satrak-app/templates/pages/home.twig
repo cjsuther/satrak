@@ -1,0 +1,45 @@
+{% extends 'layouts/auth.twig' %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block body %}
+<div class="splash">
+  <div class="splash__inner">
+    <div class="brand">
+      <img class="brand__mark" src="/assets/img/favicon.svg" alt="" aria-hidden="true">
+      <span class="brand__name">Sa<b>trak</b></span>
+    </div>
+
+    <div class="card stack">
+      <h1>Plataforma de seguimiento</h1>
+      <p class="muted">
+        Seguimiento satelital de vehículos y personal, multi-empresa.
+        Entorno en construcción.
+      </p>
+
+      <div>
+        <div class="kv">
+          <span class="kv__k">Estado base de datos</span>
+          <span class="kv__v">
+            {% if db_status.ok %}
+              <span class="badge badge--ok"><span class="dot"></span>{{ db_status.message }}</span>
+            {% else %}
+              <span class="badge badge--warn"><span class="dot"></span>{{ db_status.message }}</span>
+            {% endif %}
+          </span>
+        </div>
+        <div class="kv">
+          <span class="kv__k">PHP</span>
+          <span class="kv__v">{{ php_version }}</span>
+        </div>
+        <div class="kv">
+          <span class="kv__k">Entorno</span>
+          <span class="kv__v">{{ app_env }}</span>
+        </div>
+      </div>
+
+      <span class="tag-phase">{{ phase }}</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
