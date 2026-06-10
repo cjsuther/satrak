@@ -18,10 +18,44 @@ use Slim\Factory\AppFactory;
 use Slim\Views\Twig;
 use Slim\Views\TwigMiddleware;
 
-require __DIR__ . '/../vendor/autoload.php';
+// Servidor embebido (php -S): servir archivos estáticos existentes tal cual.
+// En Apache esto lo resuelve .htaccess (RewriteCond -f); acá solo aplica en dev.
+if (PHP_SAPI === 'cli-server') {
+    $static = __DIR__ . parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    if (is_file($static)) {
+        return false;
+    }
+}
+
+/* ----------------------------------------------- Resolver la raíz privada */
+// Carpetas privadas (src/, vendor/, config/, templates/, storage/) que NO se
+// sirven por web. Soporta dos layouts en Hostinger:
+//   A) Split (recomendado): el doc root del subdominio es public_html/app y
+//      contiene solo public/. Los privados viven fuera de la web; la ruta se
+//      indica con la env SATRAK_APP_ROOT (SetEnv en .htaccess) o el archivo
+//      _satrak_root.php que escribe el script de deploy.
+//   B) Intacto: el doc root apunta a satrak-app/public (privados son hermanos).
+$privateRoot = '';
+$rootFile = __DIR__ . '/_satrak_root.php';
+foreach ([
+    (string) (getenv('SATRAK_APP_ROOT') ?: ($_SERVER['SATRAK_APP_ROOT'] ?? '')),
+    is_file($rootFile) ? (string) (require $rootFile) : '',
+    dirname(__DIR__),                       // layout intacto / dev local
+] as $candidate) {
+    if ($candidate !== '' && is_file($candidate . '/src/settings.php') && is_file($candidate . '/vendor/autoload.php')) {
+        $privateRoot = $candidate;
+        break;
+    }
+}
+if ($privateRoot === '') {
+    http_response_code(500);
+    exit('Error de configuración: no se encontró la raíz privada de la app (src/vendor). Revisá SATRAK_APP_ROOT o el deploy (ver deploy/DEPLOY-HOSTINGER.md).');
+}
+
+require $privateRoot . '/vendor/autoload.php';
 
 /* ------------------------------------------------------------------ Config */
-$settings = require __DIR__ . '/../src/settings.php';
+$settings = require $privateRoot . '/src/settings.php';
 
 // Entorno y zona horaria.
 $GLOBALS['satrak_env'] = $settings['app']['env'] ?? 'production';
@@ -77,6 +111,6 @@ $app->addRoutingMiddleware();
 $errorMiddleware = $app->addErrorMiddleware($debug, true, true);
 
 /* ------------------------------------------------------------------ Rutas */
-(require __DIR__ . '/../src/routes.php')($app);
+(require $privateRoot . '/src/routes.php')($app);
 
 $app->run();

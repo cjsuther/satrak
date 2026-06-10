@@ -1,5 +1,13 @@
 # Satrak — Plataforma de Tracking
-# .htaccess del document root (public/). Apache 2.4+.
+# .htaccess del document root (public/ → en Hostinger: public_html/app/). Apache 2.4+.
+
+# ------------------------------------------------ Raíz privada (deploy split)
+# Ruta ABSOLUTA a la carpeta privada (src/, vendor/, config/, templates/, storage/),
+# que vive FUERA del document root. El script de deploy escribe además
+# _satrak_root.php; podés usar cualquiera de los dos. Descomentá y ajustá si hace falta:
+# <IfModule mod_env.c>
+#   SetEnv SATRAK_APP_ROOT "/home/USUARIO/satrak-private/satrak-app"
+# </IfModule>
 
 # ---------------------------------------------------------------- Rewrite
 <IfModule mod_rewrite.c>
@@ -37,7 +45,7 @@
 Options -Indexes
 
 # Bloquear acceso a archivos sensibles si quedaran bajo public por error.
-<FilesMatch "(^\.|\.(ini|log|sh|sql|md|lock|json|dist|example)$|config\.php)">
+<FilesMatch "(^\.|^_satrak_root\.php$|\.(ini|log|sh|sql|md|lock|json|dist|example)$|config\.php)">
     Require all denied
 </FilesMatch>
 
