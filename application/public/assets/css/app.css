@@ -1,0 +1,131 @@
+/* ==========================================================================
+   Satrak — App / panel base
+   Tema oscuro navy. Reset liviano + tipografía + componentes base.
+   Mobile-first, foco visible, prefers-reduced-motion respetado.
+   ========================================================================== */
+
+*,*::before,*::after{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; }
+body{
+  margin:0;
+  font-family:var(--font-body);
+  font-size:var(--fs-body);
+  line-height:1.55;
+  color:var(--mist);
+  background:var(--surface-0);
+  background-image:
+    radial-gradient(rgba(31,224,196,0.05) 1px, transparent 1px);
+  background-size:22px 22px;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+
+h1,h2,h3,h4{ font-family:var(--font-display); font-weight:600; line-height:1.15; margin:0 0 var(--space-3); }
+h1{ font-size:var(--fs-display); }
+h2{ font-size:var(--fs-h2); }
+h3{ font-size:var(--fs-h3); }
+p{ margin:0 0 var(--space-4); }
+a{ color:var(--teal); text-decoration:none; }
+a:hover{ text-decoration:underline; }
+small{ font-size:var(--fs-sm); }
+
+/* Datos técnicos siempre en mono */
+.mono,code,kbd,samp{ font-family:var(--font-mono); }
+
+/* Foco de teclado visible y accesible */
+:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; border-radius:4px; }
+
+/* Logotipo Satrak */
+.brand{
+  font-family:var(--font-display);
+  font-weight:600;
+  letter-spacing:-0.01em;
+  color:var(--mist);
+  display:inline-flex;
+  align-items:baseline;
+}
+.brand .dot{ color:var(--teal); }
+
+/* Eyebrow: mono + uppercase con línea teal */
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:var(--fs-mono);
+  text-transform:uppercase;
+  letter-spacing:0.12em;
+  color:var(--teal);
+  display:inline-flex;
+  align-items:center;
+  gap:var(--space-3);
+}
+.eyebrow::before{
+  content:""; width:28px; height:2px; background:var(--teal); display:inline-block;
+}
+
+/* Botones */
+.btn{
+  display:inline-flex; align-items:center; gap:var(--space-2);
+  font-family:var(--font-body); font-weight:600; font-size:var(--fs-sm);
+  padding:.6rem 1.1rem; border-radius:var(--radius-sm);
+  border:1px solid transparent; cursor:pointer; transition:transform var(--t), background var(--t), border var(--t);
+  text-decoration:none;
+}
+.btn:hover{ text-decoration:none; transform:translateY(-1px); }
+.btn-primary{ background:var(--teal); color:var(--navy); }
+.btn-primary:hover{ background:#3CE9D2; }
+.btn-secondary{ background:transparent; color:var(--mist); border-color:var(--teal-line); }
+.btn-secondary:hover{ border-color:var(--teal); background:var(--teal-soft); }
+
+/* Badges de estado */
+.badge{
+  display:inline-flex; align-items:center; gap:.4rem;
+  font-family:var(--font-mono); font-size:var(--fs-mono);
+  padding:.2rem .6rem; border-radius:999px; border:1px solid var(--surface-line);
+}
+.badge .dot{ width:8px; height:8px; border-radius:50%; }
+.badge-ok    .dot{ background:var(--ok); }
+.badge-alert .dot{ background:var(--amber); }
+.badge-off   .dot{ background:var(--slate); }
+
+/* Card / panel */
+.card{
+  background:var(--surface-1);
+  border:1px solid var(--surface-line);
+  border-radius:var(--radius);
+  padding:var(--space-6);
+  box-shadow:var(--shadow-md);
+}
+
+/* Layout utilitario */
+.container{ width:100%; max-width:var(--maxw); margin-inline:auto; padding-inline:var(--space-5); }
+.center-screen{
+  min-height:100vh; display:grid; place-items:center; padding:var(--space-6);
+}
+
+/* Readout "live" estilo marca */
+.readout{
+  font-family:var(--font-mono); font-size:var(--fs-mono);
+  color:var(--mist); display:inline-flex; align-items:center; gap:.6rem;
+  background:var(--navy-060); border:1px solid var(--surface-line);
+  padding:.4rem .8rem; border-radius:999px;
+}
+.live-dot{ width:9px; height:9px; border-radius:50%; background:var(--teal); position:relative; }
+.live-dot::after{
+  content:""; position:absolute; inset:0; border-radius:50%;
+  box-shadow:0 0 0 0 var(--teal); animation:ping 1.8s var(--ease) infinite;
+}
+@keyframes ping{ 0%{ box-shadow:0 0 0 0 rgba(31,224,196,.5);} 100%{ box-shadow:0 0 0 12px rgba(31,224,196,0);} }
+
+/* Hero de la home de bootstrap */
+.bootstrap-hero{ max-width:560px; text-align:center; }
+.bootstrap-hero .card{ text-align:left; }
+.status-line{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:var(--space-4); padding:var(--space-3) 0; border-top:1px solid var(--surface-line);
+  font-size:var(--fs-sm);
+}
+.status-line:first-of-type{ border-top:0; }
+.status-val{ font-family:var(--font-mono); color:var(--slate); }
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; transition:none !important; }
+}

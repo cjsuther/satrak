@@ -1,0 +1,47 @@
+{% extends "layouts/auth.twig" %}
+
+{% block title %}Satrak — Plataforma de Tracking{% endblock %}
+
+{% block content %}
+<div class="bootstrap-hero">
+  <span class="eyebrow">Plataforma de tracking</span>
+  <h1 class="brand" style="justify-content:center; margin-top:var(--space-4)">satrak<span class="dot">.</span></h1>
+  <p style="color:var(--slate)">Seguimiento satelital en tiempo real, donde otros no llegan.</p>
+
+  <div class="readout" style="margin-bottom:var(--space-6)">
+    <span class="live-dot" aria-hidden="true"></span>
+    <span>● LIVE · LAT -38.95 · LON -68.06</span>
+  </div>
+
+  <div class="card">
+    <span class="eyebrow">Estado del sistema</span>
+    <div style="margin-top:var(--space-4)">
+      <div class="status-line">
+        <span>Aplicación</span>
+        <span class="badge badge-ok"><span class="dot"></span> en línea</span>
+      </div>
+      <div class="status-line">
+        <span>Base de datos</span>
+        {% if db_ok %}
+          <span class="badge badge-ok"><span class="dot"></span> conectada</span>
+        {% else %}
+          <span class="badge badge-alert"><span class="dot"></span> sin conexión</span>
+        {% endif %}
+      </div>
+      <div class="status-line">
+        <span>Entorno</span>
+        <span class="status-val">{{ app.env }}</span>
+      </div>
+    </div>
+    {% if not db_ok and db_error %}
+      <p class="mono" style="color:var(--amber); margin-top:var(--space-4); font-size:var(--fs-mono)">
+        {{ db_error }}
+      </p>
+    {% endif %}
+  </div>
+
+  <p style="margin-top:var(--space-6); color:var(--slate); font-size:var(--fs-sm)">
+    Fase 0 — Bootstrap · {{ app.year }}
+  </p>
+</div>
+{% endblock %}

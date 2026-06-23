@@ -1,0 +1,18 @@
+# Secretos / config real
+/config/config.php
+
+# Dependencias
+/vendor/
+
+# Logs y temporales
+/storage/logs/*.log
+/storage/cache/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editores
+.idea/
+.vscode/
+*.swp

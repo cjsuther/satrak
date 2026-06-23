@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050E1F">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Satrak{% endblock %} · Satrak</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/app.css">
+  {% block head %}{% endblock %}
+</head>
+<body class="app-body">
+  {# Shell del panel. Sidebar y topbar se construyen en la Fase 2 (Auth + RBAC). #}
+  <div class="app-shell">
+    {% block sidebar %}{% endblock %}
+    <div class="app-main">
+      {% block topbar %}{% endblock %}
+      <main class="app-content container">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

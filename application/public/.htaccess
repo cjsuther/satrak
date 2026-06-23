@@ -1,0 +1,33 @@
+# Satrak — front controller + seguridad (Apache / Hostinger)
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Forzar HTTPS (Hostinger termina TLS; respeta el header del proxy).
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Servir archivos/carpetas reales tal cual (assets).
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Todo lo demás al front controller.
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# No listar directorios.
+Options -Indexes
+
+# Cabeceras de seguridad base (las dinámicas las pone PHP; estas son red de seguridad).
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Bloquear acceso a archivos sensibles si quedaran dentro de public por error.
+<FilesMatch "\.(php~|bak|inc|sql|md|log|ini)$">
+    Require all denied
+</FilesMatch>
