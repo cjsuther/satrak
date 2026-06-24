@@ -48,6 +48,27 @@ final class DeviceDriverLinkRepository
         return $row ?: null;
     }
 
+    /** ¿El conductor está en la allowlist activa del dispositivo (is_default=0)? */
+    public function isInAllowlist(int $deviceId, int $driverId, int $companyId): bool
+    {
+        $stmt = $this->db->prepare(
+            'SELECT id FROM device_driver_links
+             WHERE device_id = ? AND driver_id = ? AND company_id = ?
+               AND is_default = 0 AND unlinked_at IS NULL LIMIT 1'
+        );
+        $stmt->execute([$deviceId, $driverId, $companyId]);
+
+        return $stmt->fetch() !== false;
+    }
+
+    /** Id del conductor por defecto activo (dispositivos sin PIN), o null. */
+    public function activeDefaultDriverId(int $deviceId, int $companyId): ?int
+    {
+        $row = $this->activeDefault($deviceId, $companyId);
+
+        return $row !== null ? (int) $row['driver_id'] : null;
+    }
+
     public function hasActiveLink(int $deviceId, int $driverId, int $companyId): bool
     {
         $stmt = $this->db->prepare(

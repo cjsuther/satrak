@@ -87,6 +87,19 @@ final class AssignmentRepository
         }
     }
 
+    /** Id del vehículo asignado activo del dispositivo, o null. */
+    public function activeVehicleId(int $deviceId, int $companyId): ?int
+    {
+        $stmt = $this->db->prepare(
+            'SELECT vehicle_id FROM device_vehicle_assignments
+             WHERE device_id = ? AND company_id = ? AND unassigned_at IS NULL LIMIT 1'
+        );
+        $stmt->execute([$deviceId, $companyId]);
+        $val = $stmt->fetchColumn();
+
+        return $val !== false ? (int) $val : null;
+    }
+
     /** Cierra la asignación activa del dispositivo (si la hay). */
     public function unassignDevice(int $companyId, int $deviceId): void
     {

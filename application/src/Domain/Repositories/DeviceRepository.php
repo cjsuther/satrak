@@ -93,6 +93,27 @@ final class DeviceRepository extends BaseRepository
     }
 
     /**
+     * Todos los dispositivos activos de todas las empresas (para el procesador).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function allActive(): array
+    {
+        return $this->db
+            ->query("SELECT id, company_id, has_pin FROM devices WHERE status = 'active' ORDER BY id")
+            ->fetchAll();
+    }
+
+    /** Denormaliza la última posición vista del dispositivo (mapa en vivo). */
+    public function updateLastPosition(int $deviceId, int $positionId, string $seenAt): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE devices SET last_position_id = ?, last_seen_at = ? WHERE id = ?'
+        );
+        $stmt->execute([$positionId, $seenAt, $deviceId]);
+    }
+
+    /**
      * @return array{rows:array<int,array<string,mixed>>,total:int,page:int,pages:int,per_page:int,sort:string,dir:string}
      */
     public function listPaginated(int $companyId, Listing $listing): array

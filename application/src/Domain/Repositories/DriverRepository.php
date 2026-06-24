@@ -73,6 +73,20 @@ final class DriverRepository extends BaseRepository
         ]);
     }
 
+    /**
+     * Busca un conductor por PIN dentro de la empresa (atribución §8).
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findByPin(int $companyId, string $pin): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM drivers WHERE company_id = ? AND pin = ? LIMIT 1');
+        $stmt->execute([$companyId, $pin]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
     /** Conductores activos de la empresa (para selects). @return array<int,array<string,mixed>> */
     public function activeForCompany(int $companyId): array
     {
