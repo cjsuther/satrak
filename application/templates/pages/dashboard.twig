@@ -1,0 +1,37 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Panel</span>
+    <h1>Hola, {{ current_user.name }}</h1>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  {% if kpis.empresas is defined %}
+    <div class="card kpi">
+      <span class="kpi-label">Empresas</span>
+      <span class="kpi-value mono">{{ kpis.empresas }}</span>
+    </div>
+  {% endif %}
+  <div class="card kpi">
+    <span class="kpi-label">Usuarios{{ kpis.empresas is defined ? ' (total)' : ' de la empresa' }}</span>
+    <span class="kpi-value mono">{{ kpis.usuarios }}</span>
+  </div>
+</div>
+
+<div class="card" style="margin-top:var(--space-6)">
+  <span class="eyebrow">Estado</span>
+  <p class="muted" style="margin-top:var(--space-4)">
+    Fase 2 lista: autenticación, multi-tenant, RBAC, CSRF y auditoría activos.
+    Los módulos de monitoreo, flota y reportes se habilitan en las próximas fases
+    (los ítems marcados <em>próximamente</em> en el menú).
+  </p>
+  {% if is_super_admin and not context_company %}
+    <p class="muted">Sos <strong>Super Admin</strong> en vista global. En la Fase 3 vas a poder
+      crear empresas y entrar en su contexto.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{# Topbar: toggle mobile, contexto de empresa (super admin), campana y menú de usuario. #}
+<header class="topbar">
+  <label for="nav-toggle" class="nav-burger" aria-label="Abrir menú">≡</label>
+
+  <div class="topbar-context">
+    {% if is_super_admin %}
+      {% if context_company %}
+        <span class="readout">
+          <span class="live-dot" aria-hidden="true"></span>
+          Contexto: <strong>{{ context_company.name }}</strong>
+        </span>
+        <form method="post" action="/context/exit" class="inline-form">
+          {{ csrf_field() }}
+          <button class="btn btn-secondary btn-sm" type="submit">Salir del contexto</button>
+        </form>
+      {% else %}
+        <span class="readout"><span class="live-dot" aria-hidden="true"></span> Vista global (Satrak)</span>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="topbar-actions">
+    <button class="icon-btn" type="button" title="Notificaciones" data-soon aria-label="Notificaciones">
+      ◔<span class="bell-badge" hidden></span>
+    </button>
+
+    <div class="user-menu">
+      <details>
+        <summary>
+          <span class="user-avatar">{{ current_user.name|slice(0,1)|upper }}</span>
+          <span class="user-meta">
+            <span class="user-name">{{ current_user.name }}</span>
+            <span class="user-role mono">{{ current_user.role }}</span>
+          </span>
+        </summary>
+        <div class="user-dropdown">
+          <a href="#" data-soon>Mi perfil</a>
+          <form method="post" action="/logout">
+            {{ csrf_field() }}
+            <button type="submit" class="link-btn">Cerrar sesión</button>
+          </form>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>

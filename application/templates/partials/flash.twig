@@ -1,0 +1,11 @@
+{# Mensajes flash de un solo uso. #}
+{% if flashes is defined and flashes|length %}
+  <div class="flash-stack" role="status" aria-live="polite">
+    {% for f in flashes %}
+      <div class="flash flash-{{ f.type }}">
+        <span>{{ f.message }}</span>
+        <button class="flash-close" type="button" aria-label="Cerrar">×</button>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

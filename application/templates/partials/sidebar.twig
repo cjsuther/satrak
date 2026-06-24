@@ -1,0 +1,57 @@
+{# Barra lateral. Ítems visibles según permisos del rol (can()). #}
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand">satrak<span class="dot">.</span></span>
+  </div>
+
+  <nav class="sidebar-nav" aria-label="Navegación principal">
+    <a class="nav-item {{ current_path == '/dashboard' ? 'is-active' : '' }}" href="/dashboard">
+      <span class="nav-ico">◎</span> Dashboard
+    </a>
+
+    {% if can('companies.manage') %}
+      <a class="nav-item {{ current_path starts with '/empresas' ? 'is-active' : '' }}" href="#" data-soon>
+        <span class="nav-ico">▣</span> Empresas
+      </a>
+    {% endif %}
+
+    {% if can('monitoring.view') %}
+      <span class="nav-section">Monitoreo</span>
+      <a class="nav-item" href="#" data-soon><span class="nav-ico">◈</span> Mapa en vivo</a>
+      <a class="nav-item" href="#" data-soon><span class="nav-ico">↻</span> Historial</a>
+    {% endif %}
+
+    {% if can('alerts.ack') %}
+      <a class="nav-item" href="#" data-soon><span class="nav-ico">△</span> Alertas</a>
+    {% endif %}
+
+    {% if can('geofences.manage') %}
+      <a class="nav-item" href="#" data-soon><span class="nav-ico">⬡</span> Geocercas</a>
+    {% endif %}
+
+    {% if can('reports.view') %}
+      <a class="nav-item" href="#" data-soon><span class="nav-ico">▤</span> Reportes</a>
+    {% endif %}
+
+    {% if can('fleet.manage') or can('users.manage') %}
+      <span class="nav-section">Gestión</span>
+      {% if can('fleet.manage') %}
+        <a class="nav-item" href="#" data-soon><span class="nav-ico">⛟</span> Vehículos</a>
+        <a class="nav-item" href="#" data-soon><span class="nav-ico">▦</span> Dispositivos</a>
+        <a class="nav-item" href="#" data-soon><span class="nav-ico">☉</span> Conductores</a>
+      {% endif %}
+      {% if can('users.manage') %}
+        <a class="nav-item {{ current_path starts with '/usuarios' ? 'is-active' : '' }}" href="/usuarios">
+          <span class="nav-ico">☰</span> Usuarios
+        </a>
+      {% endif %}
+    {% endif %}
+
+    {% if can('audit.global') or can('audit.company') %}
+      <a class="nav-item" href="#" data-soon><span class="nav-ico">❘</span> Auditoría</a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-foot mono">v1 · {{ app.env }}</div>
+</aside>
+<label for="nav-toggle" class="nav-scrim" aria-hidden="true"></label>

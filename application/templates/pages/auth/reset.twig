@@ -1,0 +1,31 @@
+{% extends "layouts/auth.twig" %}
+{% block title %}Nueva contraseña{% endblock %}
+
+{% block content %}
+<div class="auth-card card">
+  <div class="auth-head">
+    <span class="brand">satrak<span class="dot">.</span></span>
+    <p class="auth-sub">Crear nueva contraseña</p>
+  </div>
+
+  <form method="post" action="/reset" novalidate>
+    {{ csrf_field() }}
+    <input type="hidden" name="token" value="{{ token }}">
+
+    <label class="field">
+      <span class="field-label">Nueva contraseña</span>
+      <input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required autofocus>
+    </label>
+    <label class="field">
+      <span class="field-label">Repetir contraseña</span>
+      <input class="input" type="password" name="password_confirm" autocomplete="new-password" minlength="8" required>
+    </label>
+
+    <button class="btn btn-primary btn-block" type="submit">Guardar contraseña</button>
+  </form>
+
+  <div class="auth-foot">
+    <a href="/login">Volver a ingresar</a>
+  </div>
+</div>
+{% endblock %}

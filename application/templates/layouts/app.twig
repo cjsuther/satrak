@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#050E1F">
   <meta name="robots" content="noindex, nofollow">
-  <title>{% block title %}Satrak{% endblock %} · Satrak</title>
+  <title>{% block title %}Panel{% endblock %} · Satrak</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,16 +16,18 @@
   {% block head %}{% endblock %}
 </head>
 <body class="app-body">
-  {# Shell del panel. Sidebar y topbar se construyen en la Fase 2 (Auth + RBAC). #}
+  <input type="checkbox" id="nav-toggle" class="nav-toggle-cb" hidden>
   <div class="app-shell">
-    {% block sidebar %}{% endblock %}
+    {% include 'partials/sidebar.twig' %}
     <div class="app-main">
-      {% block topbar %}{% endblock %}
-      <main class="app-content container">
+      {% include 'partials/topbar.twig' %}
+      <main class="app-content">
+        {% include 'partials/flash.twig' %}
         {% block content %}{% endblock %}
       </main>
     </div>
   </div>
+  <script src="/assets/js/app.js" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

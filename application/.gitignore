@@ -4,8 +4,10 @@
 # Dependencias
 /vendor/
 
-# Logs y temporales
+# Logs y temporales (runtime)
 /storage/logs/*.log
+/storage/logs/mail/
+/storage/ratelimit/
 /storage/cache/
 
 # Sistema

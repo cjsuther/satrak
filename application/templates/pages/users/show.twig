@@ -1,0 +1,21 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ u.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow"><a href="/usuarios">Usuarios</a> / detalle</span>
+    <h1>{{ u.name }}</h1>
+  </div>
+</div>
+
+<div class="card">
+  <dl class="detail-list">
+    <div><dt>Email</dt><dd class="mono">{{ u.email }}</dd></div>
+    <div><dt>Rol</dt><dd><span class="tag">{{ u.role }}</span></dd></div>
+    <div><dt>Estado</dt><dd>{{ u.status }}</dd></div>
+    <div><dt>Empresa (id)</dt><dd class="mono">{{ u.company_id ?? '— (Satrak)' }}</dd></div>
+    <div><dt>Último acceso</dt><dd class="mono muted">{{ u.last_login_at ?? '—' }}</dd></div>
+  </dl>
+</div>
+{% endblock %}

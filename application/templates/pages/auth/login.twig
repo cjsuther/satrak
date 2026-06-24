@@ -1,0 +1,34 @@
+{% extends "layouts/auth.twig" %}
+{% block title %}Ingresar{% endblock %}
+
+{% block content %}
+<div class="auth-card card">
+  <div class="auth-head">
+    <span class="brand">satrak<span class="dot">.</span></span>
+    <p class="auth-sub">Plataforma de tracking · acceso</p>
+  </div>
+
+  <form method="post" action="/login" novalidate>
+    {{ csrf_field() }}
+
+    <label class="field">
+      <span class="field-label">Email</span>
+      <input class="input" type="email" name="email" value="{{ old_email|default('') }}"
+             autocomplete="username" required autofocus>
+      {% if errors.email is defined %}<small class="field-error">{{ errors.email }}</small>{% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field-label">Contraseña</span>
+      <input class="input" type="password" name="password" autocomplete="current-password" required>
+      {% if errors.password is defined %}<small class="field-error">{{ errors.password }}</small>{% endif %}
+    </label>
+
+    <button class="btn btn-primary btn-block" type="submit">Ingresar</button>
+  </form>
+
+  <div class="auth-foot">
+    <a href="/forgot">¿Olvidaste tu contraseña?</a>
+  </div>
+</div>
+{% endblock %}

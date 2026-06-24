@@ -1,0 +1,26 @@
+{% extends "layouts/auth.twig" %}
+{% block title %}Recuperar contraseña{% endblock %}
+
+{% block content %}
+<div class="auth-card card">
+  <div class="auth-head">
+    <span class="brand">satrak<span class="dot">.</span></span>
+    <p class="auth-sub">Recuperar contraseña</p>
+  </div>
+
+  <p class="muted">Ingresá tu email y te enviamos un enlace para crear una nueva contraseña.</p>
+
+  <form method="post" action="/forgot" novalidate>
+    {{ csrf_field() }}
+    <label class="field">
+      <span class="field-label">Email</span>
+      <input class="input" type="email" name="email" autocomplete="username" required autofocus>
+    </label>
+    <button class="btn btn-primary btn-block" type="submit">Enviar enlace</button>
+  </form>
+
+  <div class="auth-foot">
+    <a href="/login">Volver a ingresar</a>
+  </div>
+</div>
+{% endblock %}

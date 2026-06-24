@@ -2,9 +2,9 @@
 /**
  * Satrak — Punto de entrada web único.
  *
- * Bootstrap de Slim 4: contenedor DI (PHP-DI) + Twig + error handler + headers
- * de seguridad. Todo el tráfico del subdominio app.satrak.online pasa por acá
- * (ver public/.htaccess para el rewrite).
+ * Bootstrap de Slim 4: contenedor DI (PHP-DI) + Twig + sesión endurecida +
+ * middlewares (CSRF, seguridad) + error handler. Todo el tráfico del subdominio
+ * app.satrak.online pasa por acá (ver public/.htaccess para el rewrite).
  */
 
 declare(strict_types=1);
@@ -12,10 +12,11 @@ declare(strict_types=1);
 use DI\ContainerBuilder;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use Satrak\Application\Support\Database;
+use Satrak\Application\Middleware\CsrfMiddleware;
+use Satrak\Application\Support\Session;
 use Slim\Factory\AppFactory;
-use Slim\Views\Twig;
 use Slim\Views\TwigMiddleware;
+use Slim\Views\Twig;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -41,34 +42,13 @@ if ($debug) {
  * Contenedor DI
  * ------------------------------------------------------------------------ */
 $builder = new ContainerBuilder();
-$builder->addDefinitions([
-    'config' => $config,
-
-    PDO::class => function () use ($config): PDO {
-        return Database::connect($config['db']);
-    },
-
-    Twig::class => function () use ($config): Twig {
-        $twig = Twig::create(dirname(__DIR__) . '/templates', [
-            'cache'       => false,           // sin build step; cache opcional en prod
-            'autoescape'  => 'html',          // salida escapada por defecto
-            'debug'       => $config['app']['debug'],
-            'strict_variables' => false,
-        ]);
-
-        $env = $twig->getEnvironment();
-        $env->addGlobal('app', [
-            'name'      => 'Satrak',
-            'base_url'  => $config['app']['base_url'],
-            'env'       => $config['app']['env'],
-            'year'      => (int) date('Y'),
-        ]);
-
-        return $twig;
-    },
-]);
-
+$builder->addDefinitions(require dirname(__DIR__) . '/src/dependencies.php');
 $container = $builder->build();
+
+/* --------------------------------------------------------------------------
+ * Sesión endurecida (HttpOnly/Secure/SameSite + timeout por inactividad)
+ * ------------------------------------------------------------------------ */
+$container->get(Session::class)->start();
 
 /* --------------------------------------------------------------------------
  * Aplicación Slim
@@ -78,7 +58,10 @@ $app = AppFactory::create();
 
 $app->add(TwigMiddleware::createFromContainer($app, Twig::class));
 
-// Headers de seguridad en toda respuesta (CSP permite OSM tiles + Leaflet CDN).
+// CSRF en toda mutación (POST/PUT/PATCH/DELETE).
+$app->add($container->get(CsrfMiddleware::class));
+
+// Headers de seguridad + CSP (permite OSM tiles + Leaflet CDN).
 $app->add(function (Request $request, $handler) use ($config): Response {
     $response = $handler->handle($request);
 
@@ -102,46 +85,11 @@ $app->add(function (Request $request, $handler) use ($config): Response {
 $app->addRoutingMiddleware();
 
 // Error handler: en prod oculta detalles; en dev los muestra.
-$errorMiddleware = $app->addErrorMiddleware($debug, true, true);
+$app->addErrorMiddleware($debug, true, true);
 
 /* --------------------------------------------------------------------------
- * Rutas (Fase 0: home de identidad + healthcheck)
+ * Rutas
  * ------------------------------------------------------------------------ */
-$app->get('/', function (Request $request, Response $response) use ($container): Response {
-    $twig = $container->get(Twig::class);
-
-    // Verificación de conexión a la base para mostrar el estado en la home.
-    $dbOk = false;
-    $dbError = null;
-    try {
-        $container->get(PDO::class)->query('SELECT 1');
-        $dbOk = true;
-    } catch (\Throwable $e) {
-        $dbError = $e->getMessage();
-    }
-
-    return $twig->render($response, 'pages/home.twig', [
-        'db_ok'    => $dbOk,
-        'db_error' => $dbError,
-    ]);
-});
-
-// Healthcheck JSON simple (útil para monitoreo / deploy).
-$app->get('/health', function (Request $request, Response $response) use ($container): Response {
-    $dbOk = false;
-    try {
-        $container->get(PDO::class)->query('SELECT 1');
-        $dbOk = true;
-    } catch (\Throwable $e) {
-        $dbOk = false;
-    }
-
-    $payload = json_encode(['ok' => $dbOk, 'service' => 'satrak', 'db' => $dbOk]);
-    $response->getBody()->write((string) $payload);
-
-    return $response
-        ->withHeader('Content-Type', 'application/json')
-        ->withStatus($dbOk ? 200 : 503);
-});
+require dirname(__DIR__) . '/src/routes.php';
 
 $app->run();
