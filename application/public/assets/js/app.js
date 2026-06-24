@@ -31,4 +31,54 @@
       if (!d.contains(e.target)) d.removeAttribute('open');
     });
   });
+
+  // Mostrar/ocultar el campo "conductor asociado" según el rol elegido.
+  document.querySelectorAll('[data-role-select]').forEach(function (sel) {
+    var field = document.querySelector('[data-driver-field]');
+    if (!field) return;
+    var sync = function () {
+      if (sel.value === 'driver') { field.removeAttribute('hidden'); }
+      else { field.setAttribute('hidden', ''); }
+    };
+    sel.addEventListener('change', sync);
+    sync();
+  });
+
+  // Modal de confirmación para formularios con data-confirm.
+  var pendingForm = null;
+  function buildModal() {
+    var el = document.createElement('div');
+    el.className = 'modal-overlay';
+    el.innerHTML =
+      '<div class="modal" role="dialog" aria-modal="true">' +
+      '  <p class="modal-msg"></p>' +
+      '  <div class="modal-actions">' +
+      '    <button type="button" class="btn btn-secondary" data-modal-cancel>Cancelar</button>' +
+      '    <button type="button" class="btn btn-primary" data-modal-ok>Confirmar</button>' +
+      '  </div>' +
+      '</div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', function (e) {
+      if (e.target === el || e.target.hasAttribute('data-modal-cancel')) hideModal();
+      if (e.target.hasAttribute('data-modal-ok') && pendingForm) {
+        var f = pendingForm; pendingForm = null; f.submit();
+      }
+    });
+    return el;
+  }
+  var modal = null;
+  function hideModal() { if (modal) modal.classList.remove('is-open'); pendingForm = null; }
+
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (form.matches('[data-confirm]') && !form.dataset.confirmed) {
+      e.preventDefault();
+      pendingForm = form;
+      if (!modal) modal = buildModal();
+      modal.querySelector('.modal-msg').textContent = form.getAttribute('data-confirm');
+      modal.classList.add('is-open');
+    }
+  });
+
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideModal(); });
 })();

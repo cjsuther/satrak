@@ -1,0 +1,65 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ mode == 'create' ? 'Nueva empresa' : 'Editar empresa' }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/empresas">Empresas</a> / {{ mode == 'create' ? 'nueva' : 'editar' }}</span>
+  <h1>{{ mode == 'create' ? 'Nueva empresa' : company.name }}</h1></div>
+</div>
+
+<form method="post" action="{{ mode == 'create' ? '/empresas' : '/empresas/' ~ company.id }}" class="card form-card" novalidate>
+  {{ csrf_field() }}
+
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Nombre *</span>
+      <input class="input" name="name" value="{{ company.name|default('') }}" required autofocus>
+      {% if errors.name is defined %}<small class="field-error">{{ errors.name }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Cupo de dispositivos</span>
+      <input class="input" type="number" name="device_quota" min="0" value="{{ company.device_quota|default(0) }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Estado</span>
+      <select class="input" name="status">
+        <option value="active" {{ company.status == 'active' ? 'selected' }}>Activa</option>
+        <option value="suspended" {{ company.status == 'suspended' ? 'selected' }}>Suspendida</option>
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">Zona horaria</span>
+      <input class="input mono" name="timezone" value="{{ company.timezone|default('America/Argentina/Buenos_Aires') }}">
+    </label>
+  </div>
+
+  {% if mode == 'create' %}
+    <div class="form-section">
+      <span class="eyebrow">Admin de la empresa (opcional)</span>
+      <p class="muted">Si lo completás, se crea el primer usuario admin para esta empresa.</p>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">Nombre</span>
+          <input class="input" name="admin_name" value="{{ company.admin_name|default('') }}">
+          {% if errors.admin_name is defined %}<small class="field-error">{{ errors.admin_name }}</small>{% endif %}
+        </label>
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input class="input" type="email" name="admin_email" value="{{ company.admin_email|default('') }}">
+          {% if errors.admin_email is defined %}<small class="field-error">{{ errors.admin_email }}</small>{% endif %}
+        </label>
+        <label class="field">
+          <span class="field-label">Contraseña</span>
+          <input class="input" type="password" name="admin_password" autocomplete="new-password">
+          {% if errors.admin_password is defined %}<small class="field-error">{{ errors.admin_password }}</small>{% endif %}
+        </label>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/empresas">Cancelar</a>
+    <button class="btn btn-primary" type="submit">{{ mode == 'create' ? 'Crear empresa' : 'Guardar cambios' }}</button>
+  </div>
+</form>
+{% endblock %}

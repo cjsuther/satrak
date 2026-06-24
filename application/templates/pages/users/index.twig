@@ -3,21 +3,19 @@
 
 {% block content %}
 <div class="page-head">
-  <div>
-    <span class="eyebrow">Gestión</span>
-    <h1>Usuarios</h1>
-  </div>
+  <div><span class="eyebrow">Gestión</span><h1>Usuarios</h1></div>
+  <a class="btn btn-primary" href="/usuarios/nuevo">+ Nuevo usuario</a>
 </div>
+
+{% include 'partials/pagination.twig' with {base: '/usuarios'} %}
 
 <div class="card">
   <table class="data-table">
-    <thead>
-      <tr>
-        <th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último acceso</th>
-      </tr>
-    </thead>
+    <thead><tr>
+      <th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th class="ta-right">Acciones</th>
+    </tr></thead>
     <tbody>
-      {% for u in users %}
+      {% for u in page.rows %}
         <tr>
           <td><a href="/usuarios/{{ u.id }}">{{ u.name }}</a></td>
           <td class="mono">{{ u.email }}</td>
@@ -28,14 +26,19 @@
             </span>
           </td>
           <td class="mono muted">{{ u.last_login_at ?? '—' }}</td>
+          <td class="ta-right actions">
+            <a class="btn btn-secondary btn-sm" href="/usuarios/{{ u.id }}/editar">Editar</a>
+            <form method="post" action="/usuarios/{{ u.id }}/estado" class="inline-form"
+                  data-confirm="¿{{ u.status == 'active' ? 'Deshabilitar' : 'Habilitar' }} a {{ u.name }}?">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">{{ u.status == 'active' ? 'Deshabilitar' : 'Habilitar' }}</button>
+            </form>
+          </td>
         </tr>
       {% else %}
-        <tr><td colspan="5" class="muted">No hay usuarios todavía.</td></tr>
+        <tr><td colspan="6" class="muted">No hay usuarios todavía.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
-<p class="muted" style="margin-top:var(--space-4)">
-  Vista de solo lectura (Fase 2). El alta/edición de usuarios llega en la Fase 3.
-</p>
 {% endblock %}

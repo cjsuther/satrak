@@ -3,20 +3,26 @@
  * Definición de rutas de Satrak.
  *
  * Recibe $app (Slim\App) y $container (PSR-11) por scope desde index.php.
- * Las rutas públicas (login/recupero) van sueltas; el resto pasa por el grupo
- * autenticado con Auth → Tenant → ViewGlobals.
+ * Públicas: login/recupero. Autenticadas: grupo con Auth → Tenant → ViewGlobals.
+ * ABM scopeado: subgrupo que además exige contexto de empresa.
  */
 
 declare(strict_types=1);
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Satrak\Application\Controllers\AssignmentController;
 use Satrak\Application\Controllers\AuthController;
+use Satrak\Application\Controllers\CompanyController;
 use Satrak\Application\Controllers\ContextController;
 use Satrak\Application\Controllers\DashboardController;
+use Satrak\Application\Controllers\DeviceController;
+use Satrak\Application\Controllers\DriverController;
 use Satrak\Application\Controllers\UserController;
+use Satrak\Application\Controllers\VehicleController;
 use Satrak\Application\Middleware\AuthMiddleware;
 use Satrak\Application\Middleware\RbacMiddleware;
+use Satrak\Application\Middleware\RequireCompanyContextMiddleware;
 use Satrak\Application\Middleware\TenantMiddleware;
 use Satrak\Application\Middleware\ViewGlobalsMiddleware;
 use Satrak\Application\Support\Auth;
@@ -31,14 +37,13 @@ $requires = fn (string $permission): RbacMiddleware => new RbacMiddleware(
     $permission
 );
 
-// --- Raíz: redirige según estado de sesión ---------------------------------
+// --- Raíz + healthcheck (públicas) -----------------------------------------
 $app->get('/', function (Request $request, Response $response) use ($container): Response {
     $to = $container->get(Auth::class)->check() ? '/dashboard' : '/login';
 
     return $response->withHeader('Location', $to)->withStatus(302);
 });
 
-// --- Healthcheck (público) -------------------------------------------------
 $app->get('/health', function (Request $request, Response $response) use ($container): Response {
     $ok = true;
     try {
@@ -51,7 +56,7 @@ $app->get('/health', function (Request $request, Response $response) use ($conta
     return $response->withHeader('Content-Type', 'application/json')->withStatus($ok ? 200 : 503);
 });
 
-// --- Rutas públicas de autenticación ---------------------------------------
+// --- Autenticación (públicas) ----------------------------------------------
 $app->get('/login', [AuthController::class, 'showLogin']);
 $app->post('/login', [AuthController::class, 'login']);
 $app->get('/forgot', [AuthController::class, 'showForgot']);
@@ -60,23 +65,73 @@ $app->get('/reset', [AuthController::class, 'showReset']);
 $app->post('/reset', [AuthController::class, 'doReset']);
 
 // --- Grupo autenticado ------------------------------------------------------
-$app->group('', function (RouteCollectorProxy $group) use ($requires) {
+$app->group('', function (RouteCollectorProxy $group) use ($requires, $container) {
     $group->post('/logout', [AuthController::class, 'logout']);
-
     $group->get('/dashboard', [DashboardController::class, 'index']);
 
-    // Context switch del super admin (mutaciones ⇒ POST + CSRF).
-    $group->post('/context/{id:[0-9]+}', [ContextController::class, 'enter'])
-        ->add($requires(Perm::CONTEXT_SWITCH));
-    $group->post('/context/exit', [ContextController::class, 'exit'])
-        ->add($requires(Perm::CONTEXT_SWITCH));
+    // Context switch del super admin.
+    $group->post('/context/{id:[0-9]+}', [ContextController::class, 'enter'])->add($requires(Perm::CONTEXT_SWITCH));
+    $group->post('/context/exit', [ContextController::class, 'exit'])->add($requires(Perm::CONTEXT_SWITCH));
 
-    // Usuarios (read-only en Fase 2; demuestra scope + 404 cross-empresa).
-    $group->get('/usuarios', [UserController::class, 'index'])
-        ->add($requires(Perm::USERS_MANAGE));
-    $group->get('/usuarios/{id:[0-9]+}', [UserController::class, 'show'])
-        ->add($requires(Perm::USERS_MANAGE));
+    // Empresas (super admin, vista global).
+    $group->group('/empresas', function (RouteCollectorProxy $g) {
+        $g->get('', [CompanyController::class, 'index']);
+        $g->get('/nueva', [CompanyController::class, 'createForm']);
+        $g->post('', [CompanyController::class, 'store']);
+        $g->get('/{id:[0-9]+}/editar', [CompanyController::class, 'editForm']);
+        $g->post('/{id:[0-9]+}', [CompanyController::class, 'update']);
+        $g->post('/{id:[0-9]+}/estado', [CompanyController::class, 'toggleStatus']);
+    })->add($requires(Perm::COMPANIES_MANAGE));
+
+    // --- ABM scopeado a empresa (requiere contexto) -------------------------
+    $group->group('', function (RouteCollectorProxy $g) use ($requires) {
+        // Usuarios.
+        $g->group('/usuarios', function (RouteCollectorProxy $u) {
+            $u->get('', [UserController::class, 'index']);
+            $u->get('/nuevo', [UserController::class, 'createForm']);
+            $u->post('', [UserController::class, 'store']);
+            $u->get('/{id:[0-9]+}', [UserController::class, 'show']);
+            $u->get('/{id:[0-9]+}/editar', [UserController::class, 'editForm']);
+            $u->post('/{id:[0-9]+}', [UserController::class, 'update']);
+            $u->post('/{id:[0-9]+}/estado', [UserController::class, 'toggleStatus']);
+        })->add($requires(Perm::USERS_MANAGE));
+
+        // Conductores, Vehículos, Dispositivos (FLEET_MANAGE).
+        $g->group('/conductores', function (RouteCollectorProxy $c) {
+            $c->get('', [DriverController::class, 'index']);
+            $c->get('/nuevo', [DriverController::class, 'createForm']);
+            $c->post('', [DriverController::class, 'store']);
+            $c->get('/{id:[0-9]+}/editar', [DriverController::class, 'editForm']);
+            $c->post('/{id:[0-9]+}', [DriverController::class, 'update']);
+            $c->post('/{id:[0-9]+}/estado', [DriverController::class, 'toggleStatus']);
+        })->add($requires(Perm::FLEET_MANAGE));
+
+        $g->group('/vehiculos', function (RouteCollectorProxy $v) {
+            $v->get('', [VehicleController::class, 'index']);
+            $v->get('/nuevo', [VehicleController::class, 'createForm']);
+            $v->post('', [VehicleController::class, 'store']);
+            $v->get('/{id:[0-9]+}/editar', [VehicleController::class, 'editForm']);
+            $v->post('/{id:[0-9]+}', [VehicleController::class, 'update']);
+            $v->post('/{id:[0-9]+}/estado', [VehicleController::class, 'toggleStatus']);
+        })->add($requires(Perm::FLEET_MANAGE));
+
+        $g->group('/dispositivos', function (RouteCollectorProxy $dv) use ($requires) {
+            $dv->get('', [DeviceController::class, 'index']);
+            $dv->get('/nuevo', [DeviceController::class, 'createForm']);
+            $dv->post('', [DeviceController::class, 'store']);
+            $dv->get('/{id:[0-9]+}/editar', [DeviceController::class, 'editForm']);
+            $dv->post('/{id:[0-9]+}', [DeviceController::class, 'update']);
+            $dv->post('/{id:[0-9]+}/estado', [DeviceController::class, 'toggleStatus']);
+
+            // Asignaciones del dispositivo (FLEET + ASSIGNMENTS).
+            $dv->get('/{id:[0-9]+}/asignaciones', [AssignmentController::class, 'manage'])->add($requires(Perm::ASSIGNMENTS_MANAGE));
+            $dv->post('/{id:[0-9]+}/asignar-vehiculo', [AssignmentController::class, 'assignVehicle'])->add($requires(Perm::ASSIGNMENTS_MANAGE));
+            $dv->post('/{id:[0-9]+}/desasignar-vehiculo', [AssignmentController::class, 'unassignVehicle'])->add($requires(Perm::ASSIGNMENTS_MANAGE));
+            $dv->post('/{id:[0-9]+}/conductores', [AssignmentController::class, 'linkDriver'])->add($requires(Perm::ASSIGNMENTS_MANAGE));
+            $dv->post('/{id:[0-9]+}/conductores/{link:[0-9]+}/quitar', [AssignmentController::class, 'unlinkDriver'])->add($requires(Perm::ASSIGNMENTS_MANAGE));
+        })->add($requires(Perm::FLEET_MANAGE));
+    })->add($container->get(RequireCompanyContextMiddleware::class));
 })
-    ->add($container->get(ViewGlobalsMiddleware::class))   // 3º: globals de vista (necesita usuario)
-    ->add($container->get(TenantMiddleware::class))        // 2º: company_id efectivo
-    ->add($container->get(AuthMiddleware::class));          // 1º: exige sesión (outermost)
+    ->add($container->get(ViewGlobalsMiddleware::class))
+    ->add($container->get(TenantMiddleware::class))
+    ->add($container->get(AuthMiddleware::class));

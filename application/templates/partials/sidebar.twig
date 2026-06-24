@@ -10,7 +10,7 @@
     </a>
 
     {% if can('companies.manage') %}
-      <a class="nav-item {{ current_path starts with '/empresas' ? 'is-active' : '' }}" href="#" data-soon>
+      <a class="nav-item {{ current_path starts with '/empresas' ? 'is-active' : '' }}" href="/empresas">
         <span class="nav-ico">▣</span> Empresas
       </a>
     {% endif %}
@@ -36,9 +36,9 @@
     {% if can('fleet.manage') or can('users.manage') %}
       <span class="nav-section">Gestión</span>
       {% if can('fleet.manage') %}
-        <a class="nav-item" href="#" data-soon><span class="nav-ico">⛟</span> Vehículos</a>
-        <a class="nav-item" href="#" data-soon><span class="nav-ico">▦</span> Dispositivos</a>
-        <a class="nav-item" href="#" data-soon><span class="nav-ico">☉</span> Conductores</a>
+        <a class="nav-item {{ current_path starts with '/vehiculos' ? 'is-active' : '' }}" href="/vehiculos"><span class="nav-ico">⛟</span> Vehículos</a>
+        <a class="nav-item {{ current_path starts with '/dispositivos' ? 'is-active' : '' }}" href="/dispositivos"><span class="nav-ico">▦</span> Dispositivos</a>
+        <a class="nav-item {{ current_path starts with '/conductores' ? 'is-active' : '' }}" href="/conductores"><span class="nav-ico">☉</span> Conductores</a>
       {% endif %}
       {% if can('users.manage') %}
         <a class="nav-item {{ current_path starts with '/usuarios' ? 'is-active' : '' }}" href="/usuarios">

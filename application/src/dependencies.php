@@ -43,6 +43,18 @@ return [
         dirname(__DIR__) . '/storage/logs'
     ),
 
+    // DriverController necesita los límites de PIN desde config.
+    Satrak\Application\Controllers\DriverController::class => fn (ContainerInterface $c) =>
+        new Satrak\Application\Controllers\DriverController(
+            $c->get(Slim\Views\Twig::class),
+            $c->get(Satrak\Application\Support\Auth::class),
+            $c->get(Satrak\Application\Support\Flash::class),
+            $c->get(Satrak\Domain\Repositories\AuditRepository::class),
+            $c->get(Satrak\Domain\Repositories\DriverRepository::class),
+            (int) ($config['pin']['min_length'] ?? 4),
+            (int) ($config['pin']['max_length'] ?? 10)
+        ),
+
     // AuthService necesita el base_url para construir el link de recupero.
     Satrak\Domain\Services\AuthService::class => fn (ContainerInterface $c) =>
         new Satrak\Domain\Services\AuthService(

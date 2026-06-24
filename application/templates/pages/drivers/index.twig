@@ -1,0 +1,45 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Conductores{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Gestión</span><h1>Conductores</h1></div>
+  <a class="btn btn-primary" href="/conductores/nuevo">+ Nuevo conductor</a>
+</div>
+
+{% include 'partials/pagination.twig' with {base: '/conductores'} %}
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr>
+      <th>Apellido y nombre</th><th>DNI</th><th>Teléfono</th><th>PIN</th><th>Estado</th><th class="ta-right">Acciones</th>
+    </tr></thead>
+    <tbody>
+      {% for d in page.rows %}
+        <tr>
+          <td><strong>{{ d.last_name }}, {{ d.first_name }}</strong></td>
+          <td class="mono">{{ d.dni ?? '—' }}</td>
+          <td class="mono">{{ d.phone ?? '—' }}</td>
+          <td class="mono">{{ d.pin ? d.pin : '—' }}</td>
+          <td>
+            <span class="badge {{ d.status == 'active' ? 'badge-ok' : 'badge-off' }}">
+              <span class="dot"></span> {{ d.status }}
+            </span>
+          </td>
+          <td class="ta-right actions">
+            <a class="btn btn-secondary btn-sm" href="/conductores/{{ d.id }}/editar">Editar</a>
+            <a class="btn btn-secondary btn-sm" href="/usuarios/nuevo?driver_id={{ d.id }}" title="Crear usuario de portal">+ Portal</a>
+            <form method="post" action="/conductores/{{ d.id }}/estado" class="inline-form"
+                  data-confirm="¿{{ d.status == 'active' ? 'Desactivar' : 'Activar' }} a {{ d.first_name }}?">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">{{ d.status == 'active' ? 'Desactivar' : 'Activar' }}</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">No hay conductores todavía.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

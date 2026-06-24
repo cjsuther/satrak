@@ -1,0 +1,52 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Dispositivos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Gestión</span><h1>Dispositivos</h1>
+    <p class="muted">Cupo: <span class="mono">{{ active_count }} / {{ quota }}</span> activos</p>
+  </div>
+  {% if active_count < quota %}
+    <a class="btn btn-primary" href="/dispositivos/nuevo">+ Nuevo dispositivo</a>
+  {% else %}
+    <span class="btn btn-primary is-disabled" title="Cupo completo">+ Nuevo dispositivo</span>
+  {% endif %}
+</div>
+
+{% include 'partials/pagination.twig' with {base: '/dispositivos'} %}
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr>
+      <th>Etiqueta / IMEI</th><th>Modelo</th><th>PIN</th><th>Vehículo</th><th>Estado</th><th class="ta-right">Acciones</th>
+    </tr></thead>
+    <tbody>
+      {% for dv in page.rows %}
+        <tr>
+          <td><strong>{{ dv.label ?? '(sin alias)' }}</strong><br><span class="mono muted">{{ dv.imei }}</span></td>
+          <td>{{ dv.model ?? '—' }}</td>
+          <td>{{ dv.has_pin ? '<span class="tag">PIN</span>'|raw : '—' }}</td>
+          <td class="mono muted">{{ dv.vehicle_id ? '#' ~ dv.vehicle_id : 'sin asignar' }}</td>
+          <td>
+            <span class="badge {{ dv.status == 'active' ? 'badge-ok' : 'badge-off' }}">
+              <span class="dot"></span> {{ dv.status }}
+            </span>
+          </td>
+          <td class="ta-right actions">
+            <a class="btn btn-secondary btn-sm" href="/dispositivos/{{ dv.id }}/asignaciones">Asignaciones</a>
+            <a class="btn btn-secondary btn-sm" href="/dispositivos/{{ dv.id }}/editar">Editar</a>
+            <form method="post" action="/dispositivos/{{ dv.id }}/estado" class="inline-form"
+                  data-confirm="¿{{ dv.status == 'active' ? 'Desactivar' : 'Activar' }} {{ dv.label ?? dv.imei }}?">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">{{ dv.status == 'active' ? 'Desactivar' : 'Activar' }}</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">No hay dispositivos todavía.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

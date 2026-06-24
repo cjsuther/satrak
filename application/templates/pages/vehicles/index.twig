@@ -1,0 +1,44 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Vehículos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Gestión</span><h1>Vehículos</h1></div>
+  <a class="btn btn-primary" href="/vehiculos/nuevo">+ Nuevo vehículo</a>
+</div>
+
+{% include 'partials/pagination.twig' with {base: '/vehiculos'} %}
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr>
+      <th>Patente</th><th>Marca / Modelo</th><th>Tipo</th><th>Dispositivo</th><th>Estado</th><th class="ta-right">Acciones</th>
+    </tr></thead>
+    <tbody>
+      {% for v in page.rows %}
+        <tr>
+          <td><strong class="mono">{{ v.plate }}</strong></td>
+          <td>{{ v.brand ?? '—' }} {{ v.model }}</td>
+          <td><span class="tag">{{ v.type }}</span></td>
+          <td class="mono muted">{{ v.device_id ? '#' ~ v.device_id : 'sin asignar' }}</td>
+          <td>
+            <span class="badge {{ v.status == 'active' ? 'badge-ok' : 'badge-off' }}">
+              <span class="dot"></span> {{ v.status }}
+            </span>
+          </td>
+          <td class="ta-right actions">
+            <a class="btn btn-secondary btn-sm" href="/vehiculos/{{ v.id }}/editar">Editar</a>
+            <form method="post" action="/vehiculos/{{ v.id }}/estado" class="inline-form"
+                  data-confirm="¿{{ v.status == 'active' ? 'Desactivar' : 'Activar' }} {{ v.plate }}?">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">{{ v.status == 'active' ? 'Desactivar' : 'Activar' }}</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">No hay vehículos todavía.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

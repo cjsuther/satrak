@@ -1,0 +1,30 @@
+{# Paginación + buscador. Espera `page` (resultado de listPaginated), `q` y `base` (path). #}
+{% set base = base|default(current_path) %}
+<div class="list-toolbar">
+  <form method="get" action="{{ base }}" class="search-form" role="search">
+    <input class="input" type="search" name="q" value="{{ q|default('') }}" placeholder="Buscar…" aria-label="Buscar">
+    {% if page.sort %}<input type="hidden" name="sort" value="{{ page.sort }}">{% endif %}
+    {% if page.dir %}<input type="hidden" name="dir" value="{{ page.dir }}">{% endif %}
+    <button class="btn btn-secondary btn-sm" type="submit">Buscar</button>
+    {% if q is defined and q %}<a class="btn btn-secondary btn-sm" href="{{ base }}">Limpiar</a>{% endif %}
+  </form>
+  <span class="list-count mono">{{ page.total }} resultado{{ page.total == 1 ? '' : 's' }}</span>
+</div>
+
+{% if page.pages > 1 %}
+  {% set qs = q is defined and q ? '&q=' ~ q : '' %}
+  {% set ss = page.sort ? '&sort=' ~ page.sort ~ '&dir=' ~ page.dir : '' %}
+  <nav class="pagination" aria-label="Paginación">
+    {% if page.page > 1 %}
+      <a class="btn btn-secondary btn-sm" href="{{ base }}?page={{ page.page - 1 }}{{ qs }}{{ ss }}">← Anterior</a>
+    {% else %}
+      <span class="btn btn-secondary btn-sm is-disabled">← Anterior</span>
+    {% endif %}
+    <span class="page-indicator mono">Página {{ page.page }} de {{ page.pages }}</span>
+    {% if page.page < page.pages %}
+      <a class="btn btn-secondary btn-sm" href="{{ base }}?page={{ page.page + 1 }}{{ qs }}{{ ss }}">Siguiente →</a>
+    {% else %}
+      <span class="btn btn-secondary btn-sm is-disabled">Siguiente →</span>
+    {% endif %}
+  </nav>
+{% endif %}

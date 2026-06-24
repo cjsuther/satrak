@@ -1,0 +1,47 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Empresas{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Super admin</span><h1>Empresas</h1></div>
+  <a class="btn btn-primary" href="/empresas/nueva">+ Nueva empresa</a>
+</div>
+
+{% include 'partials/pagination.twig' with {base: '/empresas'} %}
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr>
+      <th>Empresa</th><th>Cupo (activos)</th><th>Usuarios</th><th>Estado</th><th class="ta-right">Acciones</th>
+    </tr></thead>
+    <tbody>
+      {% for c in page.rows %}
+        <tr>
+          <td><strong>{{ c.name }}</strong><br><span class="mono muted">{{ c.slug }}</span></td>
+          <td class="mono">{{ c.devices_active }} / {{ c.device_quota }}</td>
+          <td class="mono">{{ c.users_count }}</td>
+          <td>
+            <span class="badge {{ c.status == 'active' ? 'badge-ok' : 'badge-alert' }}">
+              <span class="dot"></span> {{ c.status == 'active' ? 'activa' : 'suspendida' }}
+            </span>
+          </td>
+          <td class="ta-right actions">
+            <form method="post" action="/context/{{ c.id }}" class="inline-form">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit" title="Operar en contexto">Entrar</button>
+            </form>
+            <a class="btn btn-secondary btn-sm" href="/empresas/{{ c.id }}/editar">Editar</a>
+            <form method="post" action="/empresas/{{ c.id }}/estado" class="inline-form"
+                  data-confirm="¿{{ c.status == 'active' ? 'Suspender' : 'Reactivar' }} {{ c.name }}?">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">{{ c.status == 'active' ? 'Suspender' : 'Reactivar' }}</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">No hay empresas. Creá la primera.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

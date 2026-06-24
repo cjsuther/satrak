@@ -1,0 +1,63 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ mode == 'create' ? 'Nuevo usuario' : 'Editar usuario' }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/usuarios">Usuarios</a> / {{ mode == 'create' ? 'nuevo' : 'editar' }}</span>
+  <h1>{{ mode == 'create' ? 'Nuevo usuario' : u.name }}</h1></div>
+</div>
+
+<form method="post" action="{{ mode == 'create' ? '/usuarios' : '/usuarios/' ~ u.id }}" class="card form-card" novalidate>
+  {{ csrf_field() }}
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Nombre *</span>
+      <input class="input" name="name" value="{{ u.name|default('') }}" required autofocus>
+      {% if errors.name is defined %}<small class="field-error">{{ errors.name }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Email *</span>
+      <input class="input" type="email" name="email" value="{{ u.email|default('') }}" required>
+      {% if errors.email is defined %}<small class="field-error">{{ errors.email }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Rol *</span>
+      <select class="input" name="role" data-role-select>
+        {% for r in roles %}
+          <option value="{{ r }}" {{ u.role == r ? 'selected' }}>{{ r }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.role is defined %}<small class="field-error">{{ errors.role }}</small>{% endif %}
+    </label>
+    <label class="field" data-driver-field {{ u.role == 'driver' ? '' : 'hidden' }}>
+      <span class="field-label">Conductor asociado (portal)</span>
+      <select class="input" name="driver_id">
+        <option value="">— elegir —</option>
+        {% for dr in drivers %}
+          <option value="{{ dr.id }}" {{ u.driver_id == dr.id ? 'selected' }}>{{ dr.last_name }}, {{ dr.first_name }}{{ dr.pin ? ' · PIN ' ~ dr.pin }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.driver_id is defined %}<small class="field-error">{{ errors.driver_id }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Contraseña {{ mode == 'create' ? '*' : '(dejar vacío para no cambiar)' }}</span>
+      <input class="input" type="password" name="password" autocomplete="new-password">
+      {% if errors.password is defined %}<small class="field-error">{{ errors.password }}</small>{% endif %}
+    </label>
+    {% if mode == 'edit' %}
+      <label class="field">
+        <span class="field-label">Estado</span>
+        <select class="input" name="status">
+          <option value="active" {{ u.status == 'active' ? 'selected' }}>Activo</option>
+          <option value="disabled" {{ u.status == 'disabled' ? 'selected' }}>Deshabilitado</option>
+        </select>
+      </label>
+    {% endif %}
+  </div>
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/usuarios">Cancelar</a>
+    <button class="btn btn-primary" type="submit">{{ mode == 'create' ? 'Crear usuario' : 'Guardar cambios' }}</button>
+  </div>
+</form>
+{% endblock %}

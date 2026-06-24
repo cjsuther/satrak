@@ -1,0 +1,102 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Asignaciones · {{ dev.label ?? dev.imei }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow"><a href="/dispositivos">Dispositivos</a> / asignaciones</span>
+    <h1>{{ dev.label ?? dev.imei }}</h1>
+    <p class="muted mono">{{ dev.imei }} · {{ dev.has_pin ? 'con PIN (allowlist)' : 'sin PIN (conductor por defecto)' }}</p>
+  </div>
+</div>
+
+<div class="cols-2">
+  {# ---------------- Vehículo ---------------- #}
+  <div class="card">
+    <span class="eyebrow">Vehículo</span>
+    {% if vehicle_active %}
+      <p>Asignado a <strong class="mono">{{ vehicle_active.plate }}</strong>
+         <span class="muted">desde {{ vehicle_active.assigned_at }}</span></p>
+      <form method="post" action="/dispositivos/{{ dev.id }}/desasignar-vehiculo"
+            data-confirm="¿Liberar la asignación de {{ vehicle_active.plate }}?">
+        {{ csrf_field() }}
+        <button class="btn btn-secondary btn-sm" type="submit">Liberar</button>
+      </form>
+    {% else %}
+      <p class="muted">Sin vehículo asignado.</p>
+    {% endif %}
+
+    <form method="post" action="/dispositivos/{{ dev.id }}/asignar-vehiculo" class="stack-form">
+      {{ csrf_field() }}
+      <label class="field">
+        <span class="field-label">{{ vehicle_active ? 'Reasignar a' : 'Asignar a' }}</span>
+        <select class="input" name="vehicle_id" required>
+          <option value="">— elegir vehículo —</option>
+          {% for v in vehicles %}<option value="{{ v.id }}">{{ v.plate }} · {{ v.brand }} {{ v.model }}</option>{% endfor %}
+        </select>
+      </label>
+      <button class="btn btn-primary btn-sm" type="submit">{{ vehicle_active ? 'Reasignar' : 'Asignar' }}</button>
+    </form>
+
+    {% if history|length %}
+      <details class="history">
+        <summary>Historial ({{ history|length }})</summary>
+        <table class="data-table compact">
+          <thead><tr><th>Vehículo</th><th>Desde</th><th>Hasta</th></tr></thead>
+          <tbody>
+            {% for h in history %}
+              <tr>
+                <td class="mono">{{ h.plate }}</td>
+                <td class="mono muted">{{ h.assigned_at }}</td>
+                <td class="mono muted">{{ h.unassigned_at ?? 'activa' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+    {% endif %}
+  </div>
+
+  {# ---------------- Conductores ---------------- #}
+  <div class="card">
+    <span class="eyebrow">{{ dev.has_pin ? 'Conductores habilitados (allowlist)' : 'Conductor por defecto' }}</span>
+
+    {% if links|length %}
+      <ul class="link-list">
+        {% for l in links %}
+          <li>
+            <span>{{ l.last_name }}, {{ l.first_name }}
+              {% if l.is_default %}<span class="tag">default</span>{% endif %}
+              {% if l.pin %}<span class="mono muted">PIN {{ l.pin }}</span>{% endif %}
+            </span>
+            <form method="post" action="/dispositivos/{{ dev.id }}/conductores/{{ l.id }}/quitar" class="inline-form"
+                  data-confirm="¿Quitar a {{ l.first_name }}?">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">Quitar</button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">{{ dev.has_pin ? 'Sin conductores habilitados.' : 'Sin conductor por defecto.' }}</p>
+    {% endif %}
+
+    <form method="post" action="/dispositivos/{{ dev.id }}/conductores" class="stack-form">
+      {{ csrf_field() }}
+      <label class="field">
+        <span class="field-label">{{ dev.has_pin ? 'Agregar a la allowlist' : 'Definir conductor por defecto' }}</span>
+        <select class="input" name="driver_id" required>
+          <option value="">— elegir conductor —</option>
+          {% for dr in drivers %}
+            <option value="{{ dr.id }}">{{ dr.last_name }}, {{ dr.first_name }}{{ dr.pin ? ' · PIN ' ~ dr.pin }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn btn-primary btn-sm" type="submit">{{ dev.has_pin ? 'Agregar' : 'Definir' }}</button>
+    </form>
+    {% if dev.has_pin %}
+      <p class="muted" style="margin-top:var(--space-3)">Solo los conductores de la lista, al ingresar su PIN, quedan atribuidos a los viajes de este equipo.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

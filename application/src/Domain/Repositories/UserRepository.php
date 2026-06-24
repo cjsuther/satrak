@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 namespace Satrak\Domain\Repositories;
 
-use PDO;
+use Satrak\Application\Support\Listing;
 
 /**
- * Acceso a la tabla `users`. Prepared statements en todo acceso.
+ * Acceso a la tabla `users` (auth + ABM). Prepared statements en todo acceso.
  */
-final class UserRepository
+final class UserRepository extends BaseRepository
 {
-    public function __construct(private PDO $db)
-    {
-    }
-
     /** @return array<string,mixed>|null */
     public function findByEmail(string $email): ?array
     {
@@ -49,11 +45,8 @@ final class UserRepository
 
     /**
      * Busca un usuario por id RESPETANDO el scope de empresa.
-     *
-     * Si $companyId es NULL (super admin en vista global), busca por id global;
-     * si no, exige que el usuario pertenezca a esa empresa. Devuelve null cuando
-     * no existe o pertenece a otra empresa → el controlador responde 404 (no 403,
-     * para no filtrar existencia).
+     * companyId NULL (super admin global) ⇒ por id; si no, exige misma empresa.
+     * Devuelve null si no existe o es de otra empresa ⇒ el controlador hace 404.
      *
      * @return array<string,mixed>|null
      */
@@ -69,25 +62,77 @@ final class UserRepository
         return $row ?: null;
     }
 
-    /**
-     * Lista usuarios scopeados a una empresa (o todos si NULL = super admin global).
-     *
-     * @return array<int,array<string,mixed>>
-     */
-    public function listByCompany(?int $companyId): array
+    /** @param array<string,mixed> $data */
+    public function create(array $data): int
     {
-        if ($companyId === null) {
-            return $this->db->query(
-                'SELECT id, company_id, name, email, role, status, last_login_at
-                 FROM users ORDER BY role, name'
-            )->fetchAll();
-        }
         $stmt = $this->db->prepare(
-            'SELECT id, company_id, name, email, role, status, last_login_at
-             FROM users WHERE company_id = ? ORDER BY role, name'
+            'INSERT INTO users (company_id, driver_id, name, email, password_hash, role, status)
+             VALUES (:company_id, :driver_id, :name, :email, :password_hash, :role, :status)'
         );
-        $stmt->execute([$companyId]);
+        $stmt->execute([
+            ':company_id'    => $data['company_id'],
+            ':driver_id'     => $data['driver_id'] ?? null,
+            ':name'          => $data['name'],
+            ':email'         => mb_strtolower(trim($data['email'])),
+            ':password_hash' => $data['password_hash'],
+            ':role'          => $data['role'],
+            ':status'        => $data['status'] ?? 'active',
+        ]);
 
-        return $stmt->fetchAll();
+        return (int) $this->db->lastInsertId();
+    }
+
+    /**
+     * Actualiza datos básicos (no la contraseña; eso va aparte).
+     *
+     * @param array<string,mixed> $data
+     */
+    public function update(int $id, array $data): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE users SET name=:name, email=:email, role=:role, status=:status, driver_id=:driver_id WHERE id=:id'
+        );
+        $stmt->execute([
+            ':name'      => $data['name'],
+            ':email'     => mb_strtolower(trim($data['email'])),
+            ':role'      => $data['role'],
+            ':status'    => $data['status'],
+            ':driver_id' => $data['driver_id'] ?? null,
+            ':id'        => $id,
+        ]);
+    }
+
+    /** ¿El email ya existe (opcionalmente excluyendo un id)? */
+    public function emailTaken(string $email, ?int $exceptId = null): bool
+    {
+        $stmt = $this->db->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+        $stmt->execute([mb_strtolower(trim($email))]);
+        $row = $stmt->fetch();
+
+        return $row !== false && (int) $row['id'] !== (int) $exceptId;
+    }
+
+    /**
+     * @return array{rows:array<int,array<string,mixed>>,total:int,page:int,pages:int,per_page:int,sort:string,dir:string}
+     */
+    public function listPaginated(?int $companyId, Listing $listing): array
+    {
+        $where = [];
+        $bind = [];
+        if ($companyId !== null) {
+            $where[] = 'company_id = :cid';
+            $bind[':cid'] = $companyId;
+        }
+
+        return $this->paginate(
+            'users',
+            ['id', 'company_id', 'name', 'email', 'role', 'status', 'last_login_at'],
+            $where,
+            $bind,
+            ['name', 'email'],
+            ['name' => 'name', 'email' => 'email', 'role' => 'role', 'status' => 'status', 'id' => 'id'],
+            $listing,
+            'name'
+        );
     }
 }

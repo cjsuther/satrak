@@ -1,0 +1,59 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ mode == 'create' ? 'Nuevo vehículo' : 'Editar vehículo' }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/vehiculos">Vehículos</a> / {{ mode == 'create' ? 'nuevo' : 'editar' }}</span>
+  <h1>{{ mode == 'create' ? 'Nuevo vehículo' : v.plate }}</h1></div>
+</div>
+
+<form method="post" action="{{ mode == 'create' ? '/vehiculos' : '/vehiculos/' ~ v.id }}" class="card form-card" novalidate>
+  {{ csrf_field() }}
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Patente *</span>
+      <input class="input mono" name="plate" value="{{ v.plate|default('') }}" required autofocus
+             style="text-transform:uppercase">
+      {% if errors.plate is defined %}<small class="field-error">{{ errors.plate }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Tipo *</span>
+      <select class="input" name="type">
+        {% for t in types %}<option value="{{ t }}" {{ v.type == t ? 'selected' }}>{{ t }}</option>{% endfor %}
+      </select>
+      {% if errors.type is defined %}<small class="field-error">{{ errors.type }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Marca</span>
+      <input class="input" name="brand" value="{{ v.brand|default('') }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Modelo</span>
+      <input class="input" name="model" value="{{ v.model|default('') }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Año</span>
+      <input class="input mono" type="number" name="year" value="{{ v.year|default('') }}" min="1950" max="{{ 'now'|date('Y') + 1 }}">
+      {% if errors.year is defined %}<small class="field-error">{{ errors.year }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Color</span>
+      <input class="input" name="color" value="{{ v.color|default('') }}">
+    </label>
+    {% if mode == 'edit' %}
+      <label class="field">
+        <span class="field-label">Estado</span>
+        <select class="input" name="status">
+          <option value="active" {{ v.status == 'active' ? 'selected' }}>Activo</option>
+          <option value="inactive" {{ v.status == 'inactive' ? 'selected' }}>Inactivo</option>
+        </select>
+      </label>
+    {% endif %}
+  </div>
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/vehiculos">Cancelar</a>
+    <button class="btn btn-primary" type="submit">{{ mode == 'create' ? 'Crear vehículo' : 'Guardar cambios' }}</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ mode == 'create' ? 'Nuevo dispositivo' : 'Editar dispositivo' }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/dispositivos">Dispositivos</a> / {{ mode == 'create' ? 'nuevo' : 'editar' }}</span>
+  <h1>{{ mode == 'create' ? 'Nuevo dispositivo' : (dev.label ?? dev.imei) }}</h1></div>
+</div>
+
+<form method="post" action="{{ mode == 'create' ? '/dispositivos' : '/dispositivos/' ~ dev.id }}" class="card form-card" novalidate>
+  {{ csrf_field() }}
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">IMEI *</span>
+      <input class="input mono" name="imei" value="{{ dev.imei|default('') }}" required autofocus inputmode="numeric">
+      {% if errors.imei is defined %}<small class="field-error">{{ errors.imei }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Etiqueta / alias</span>
+      <input class="input" name="label" value="{{ dev.label|default('') }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Modelo</span>
+      <input class="input" name="model" value="{{ dev.model|default('') }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Protocolo</span>
+      <input class="input mono" name="protocol" value="{{ dev.protocol|default('') }}" placeholder="gt06, teltonika…">
+    </label>
+    <label class="field">
+      <span class="field-label">SIM (ICCID)</span>
+      <input class="input mono" name="sim_iccid" value="{{ dev.sim_iccid|default('') }}">
+    </label>
+    {% if mode == 'edit' %}
+      <label class="field">
+        <span class="field-label">Estado</span>
+        <select class="input" name="status">
+          <option value="active" {{ dev.status == 'active' ? 'selected' }}>Activo</option>
+          <option value="inactive" {{ dev.status == 'inactive' ? 'selected' }}>Inactivo</option>
+        </select>
+      </label>
+    {% endif %}
+  </div>
+
+  <label class="check-field">
+    <input type="checkbox" name="has_pin" value="1" {{ dev.has_pin ? 'checked' }}>
+    <span>Identifica conductor por <strong>PIN</strong> (allowlist de conductores). Si está desmarcado, se usa un conductor por defecto.</span>
+  </label>
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/dispositivos">Cancelar</a>
+    <button class="btn btn-primary" type="submit">{{ mode == 'create' ? 'Crear dispositivo' : 'Guardar cambios' }}</button>
+  </div>
+</form>
+{% endblock %}
