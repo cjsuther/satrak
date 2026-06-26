@@ -1,0 +1,49 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Mapa en vivo{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Monitoreo</span><h1>Mapa en vivo</h1>
+  </div>
+  <div class="map-sync readout">
+    <span class="live-dot" aria-hidden="true"></span>
+    <span data-sync-label>conectando…</span>
+  </div>
+</div>
+
+<div class="map-layout card">
+  <aside class="map-panel">
+    <div class="map-panel-head">
+      <input type="search" class="input" placeholder="Buscar patente / equipo…" data-unit-search aria-label="Buscar unidad">
+      <div class="map-filters" role="group" aria-label="Filtrar por estado">
+        <button type="button" class="chip is-active" data-filter="all">Todas</button>
+        <button type="button" class="chip" data-filter="movimiento">En movimiento</button>
+        <button type="button" class="chip" data-filter="detenido">Detenidas</button>
+        <button type="button" class="chip" data-filter="offline">Offline</button>
+      </div>
+    </div>
+    <ul class="unit-list" data-unit-list>
+      <li class="unit-empty muted">Cargando unidades…</li>
+    </ul>
+  </aside>
+
+  <div class="map-canvas">
+    <div id="map" class="leaflet-map"
+         data-mode="live"
+         data-endpoint="/api/live/positions"
+         data-poll="{{ poll_seconds }}"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/assets/js/map.js" defer></script>
+{% endblock %}

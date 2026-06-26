@@ -55,6 +55,16 @@ return [
             (int) ($config['pin']['max_length'] ?? 10)
         ),
 
+    // MapController necesita los umbrales de monitoreo desde config.
+    Satrak\Application\Controllers\MapController::class => fn (ContainerInterface $c) =>
+        new Satrak\Application\Controllers\MapController(
+            $c->get(Slim\Views\Twig::class),
+            $c->get(Satrak\Domain\Repositories\MonitoringRepository::class),
+            $c->get(Satrak\Domain\Repositories\DeviceRepository::class),
+            (int) ($config['tracking']['offline_minutes'] ?? 30),
+            (int) ($config['map']['live_poll_seconds'] ?? 15)
+        ),
+
     // AuthService necesita el base_url para construir el link de recupero.
     Satrak\Domain\Services\AuthService::class => fn (ContainerInterface $c) =>
         new Satrak\Domain\Services\AuthService(

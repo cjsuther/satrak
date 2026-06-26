@@ -25,9 +25,12 @@ declare(strict_types=1);
 /** @var array $config @var PDO $pdo */
 [$config, $pdo] = require __DIR__ . '/bootstrap.php';
 
-$opts     = getopt('', ['reset', 'hours-ago::']);
+$opts     = getopt('', ['reset', 'hours-ago::', 'live', 'ticks::', 'every::']);
 $reset    = isset($opts['reset']);
 $hoursAgo = isset($opts['hours-ago']) ? max(1, (int) $opts['hours-ago']) : 6;
+$live     = isset($opts['live']);
+$ticks    = isset($opts['ticks']) ? max(0, (int) $opts['ticks']) : 0;  // 0 = indefinido
+$everySec = isset($opts['every']) ? max(1, (int) $opts['every']) : 5;
 
 if ($reset) {
     foreach (['positions', 'device_events', 'trips', 'processor_state'] as $t) {
@@ -40,6 +43,75 @@ if ($reset) {
 // Punto de partida: zona Neuquén capital.
 $baseLat = -38.9516;
 $baseLon = -68.0591;
+
+// -- Modo vivo: agrega una posición por dispositivo cada N segundos y corre el
+//    procesador, para demostrar el mapa en vivo (§10). Cortar con Ctrl-C.
+if ($live) {
+    $devices = $pdo->query("SELECT id, company_id, has_pin FROM devices WHERE status = 'active' ORDER BY id")->fetchAll();
+
+    // PIN inicial para dispositivos con PIN, para que la atribución muestre conductor.
+    $firstPin = static function (int $deviceId, int $companyId) use ($pdo): ?string {
+        $stmt = $pdo->prepare(
+            'SELECT dr.pin FROM device_driver_links l JOIN drivers dr ON dr.id = l.driver_id
+             WHERE l.device_id = ? AND l.company_id = ? AND l.is_default = 0 AND l.unlinked_at IS NULL
+               AND dr.pin IS NOT NULL ORDER BY l.id LIMIT 1'
+        );
+        $stmt->execute([$deviceId, $companyId]);
+        $v = $stmt->fetchColumn();
+
+        return $v !== false ? (string) $v : null;
+    };
+
+    // Estado de simulación por dispositivo (arranca desde su última posición o de la base).
+    $sim = [];
+    foreach ($devices as $i => $d) {
+        $did = (int) $d['id'];
+        $last = $pdo->prepare('SELECT lat, lon FROM positions WHERE device_id = ? ORDER BY id DESC LIMIT 1');
+        $last->execute([$did]);
+        $row = $last->fetch();
+        $sim[$did] = [
+            'lat' => $row ? (float) $row['lat'] : $baseLat + $i * 0.01,
+            'lon' => $row ? (float) $row['lon'] : $baseLon - $i * 0.01,
+        ];
+        if ((bool) $d['has_pin'] && ($pin = $firstPin($did, (int) $d['company_id'])) !== null) {
+            $ev = $pdo->prepare('INSERT INTO device_events (company_id, device_id, ts, event_type, pin_code) VALUES (?,?,?,?,?)');
+            $ev->execute([(int) $d['company_id'], $did, date('Y-m-d H:i:s'), 'pin_set', $pin]);
+        }
+    }
+
+    $insLive = $pdo->prepare(
+        'INSERT INTO positions (company_id, device_id, ts, lat, lon, speed, heading, ignition, satellites)
+         VALUES (?,?,?,?,?,?,?,1,?)'
+    );
+
+    $processor = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/processor.php') . ' --quiet';
+
+    echo "Modo vivo: 1 posición por dispositivo cada {$everySec}s. Ctrl-C para cortar.\n";
+    $n = 0;
+    while ($ticks === 0 || $n < $ticks) {
+        $now = date('Y-m-d H:i:s');
+        foreach ($devices as $d) {
+            $did = (int) $d['id'];
+            $sim[$did]['lat'] += 0.0009 + mt_rand(0, 6) / 10000;
+            $sim[$did]['lon'] += 0.0007 + mt_rand(0, 6) / 10000;
+            $insLive->execute([
+                (int) $d['company_id'], $did, $now,
+                round($sim[$did]['lat'], 7), round($sim[$did]['lon'], 7),
+                mt_rand(25, 90), mt_rand(0, 359), mt_rand(6, 12),
+            ]);
+        }
+        exec($processor);
+        $n++;
+        echo "  tick {$n} · " . count($devices) . " posiciones @ {$now}\n";
+        if ($ticks !== 0 && $n >= $ticks) {
+            break;
+        }
+        sleep($everySec);
+    }
+    echo "Live OK · {$n} ticks generados y procesados.\n";
+
+    return;
+}
 
 $intervalSec = 30;     // entre posiciones de un viaje
 $pointsPerTrip = 10;   // posiciones por viaje

@@ -18,6 +18,7 @@ use Satrak\Application\Controllers\ContextController;
 use Satrak\Application\Controllers\DashboardController;
 use Satrak\Application\Controllers\DeviceController;
 use Satrak\Application\Controllers\DriverController;
+use Satrak\Application\Controllers\MapController;
 use Satrak\Application\Controllers\UserController;
 use Satrak\Application\Controllers\VehicleController;
 use Satrak\Application\Middleware\AuthMiddleware;
@@ -85,6 +86,14 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
 
     // --- ABM scopeado a empresa (requiere contexto) -------------------------
     $group->group('', function (RouteCollectorProxy $g) use ($requires) {
+        // Monitoreo: mapa en vivo, historial y endpoints JSON (monitoring.view).
+        $g->group('', function (RouteCollectorProxy $m) {
+            $m->get('/mapa', [MapController::class, 'live']);
+            $m->get('/historial', [MapController::class, 'history']);
+            $m->get('/api/live/positions', [MapController::class, 'livePositions']);
+            $m->get('/api/devices/{id:[0-9]+}/track', [MapController::class, 'track']);
+        })->add($requires(Perm::MONITORING_VIEW));
+
         // Usuarios.
         $g->group('/usuarios', function (RouteCollectorProxy $u) {
             $u->get('', [UserController::class, 'index']);

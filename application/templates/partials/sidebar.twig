@@ -17,8 +17,8 @@
 
     {% if can('monitoring.view') %}
       <span class="nav-section">Monitoreo</span>
-      <a class="nav-item" href="#" data-soon><span class="nav-ico">◈</span> Mapa en vivo</a>
-      <a class="nav-item" href="#" data-soon><span class="nav-ico">↻</span> Historial</a>
+      <a class="nav-item {{ current_path == '/mapa' ? 'is-active' : '' }}" href="/mapa"><span class="nav-ico">◈</span> Mapa en vivo</a>
+      <a class="nav-item {{ current_path starts with '/historial' ? 'is-active' : '' }}" href="/historial"><span class="nav-ico">↻</span> Historial</a>
     {% endif %}
 
     {% if can('alerts.ack') %}

@@ -1,0 +1,96 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Historial{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Monitoreo</span><h1>Historial y reproducción</h1>
+  </div>
+</div>
+
+<form method="get" action="/historial" class="card filter-bar">
+  <label class="field">
+    <span>Dispositivo / vehículo</span>
+    <select name="device_id" class="input" required>
+      <option value="">Elegí una unidad…</option>
+      {% for d in devices %}
+        <option value="{{ d.id }}" {{ d.id == device_id ? 'selected' : '' }}>
+          {{ d.plate ? d.plate : (d.label ?? d.imei) }}{{ d.plate and d.label ? ' · ' ~ d.label : '' }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="field">
+    <span>Desde</span>
+    <input type="datetime-local" name="from" class="input" value="{{ from|date('Y-m-d\\TH:i') }}">
+  </label>
+  <label class="field">
+    <span>Hasta</span>
+    <input type="datetime-local" name="to" class="input" value="{{ to|date('Y-m-d\\TH:i') }}">
+  </label>
+  <button type="submit" class="btn btn-primary">Ver recorrido</button>
+</form>
+
+{% if has_device %}
+  <div class="map-layout card">
+    <aside class="map-panel">
+      <div class="map-panel-head">
+        <h2 class="panel-title">Viajes del período <span class="mono muted">({{ trips|length }})</span></h2>
+      </div>
+      <ul class="trip-list" data-trip-list>
+        {% for t in trips %}
+          <li class="trip-item" data-trip
+              data-from="{{ t.started_at }}" data-to="{{ t.ended_at ?? to }}">
+            <div class="trip-item-head">
+              <span class="trip-driver">{{ (t.first_name or t.last_name) ? (t.first_name ~ ' ' ~ t.last_name)|trim : 'No identificado' }}</span>
+              <span class="badge {{ t.ended_at ? 'badge-off' : 'badge-ok' }}"><span class="dot"></span>{{ t.ended_at ? 'cerrado' : 'en curso' }}</span>
+            </div>
+            <div class="trip-item-meta mono muted">
+              {{ t.started_at|date('d/m H:i') }} → {{ t.ended_at ? t.ended_at|date('H:i') : '—' }}
+              · {{ t.distance_km ?? 0 }} km
+              · {{ ((t.duration_sec ?? 0) // 60) }} min
+              · máx {{ t.max_speed ?? 0 }} km/h
+            </div>
+          </li>
+        {% else %}
+          <li class="unit-empty muted">No hay viajes en este período.</li>
+        {% endfor %}
+      </ul>
+    </aside>
+
+    <div class="map-canvas">
+      <div id="map" class="leaflet-map"
+           data-mode="history"
+           data-device="{{ device_id }}"
+           data-from="{{ from }}"
+           data-to="{{ to }}"></div>
+
+      <div class="replay-bar" data-replay hidden>
+        <button type="button" class="btn btn-secondary btn-sm" data-replay-toggle aria-label="Reproducir">▶</button>
+        <input type="range" class="replay-scrub" min="0" max="100" value="0" step="1" data-replay-scrub aria-label="Posición">
+        <div class="replay-speeds" role="group" aria-label="Velocidad de reproducción">
+          <button type="button" class="chip is-active" data-speed="1">1×</button>
+          <button type="button" class="chip" data-speed="2">2×</button>
+          <button type="button" class="chip" data-speed="4">4×</button>
+        </div>
+        <span class="replay-readout mono" data-replay-readout>—</span>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="card">
+    <p class="muted">Elegí una unidad y un rango para ver el recorrido y reproducirlo.</p>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/assets/js/map.js" defer></script>
+{% endblock %}
