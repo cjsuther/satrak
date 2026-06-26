@@ -28,6 +28,42 @@ final class TripRepository
     }
 
     /**
+     * Viajes de un conductor en un rango (portal del conductor, §9.4).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function forDriver(int $driverId, int $companyId, string $from, string $to): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT t.*, v.plate
+             FROM trips t LEFT JOIN vehicles v ON v.id = t.vehicle_id
+             WHERE t.driver_id = :did AND t.company_id = :cid
+               AND t.started_at BETWEEN :from AND :to
+             ORDER BY t.started_at DESC'
+        );
+        $stmt->execute([':did' => $driverId, ':cid' => $companyId, ':from' => $from, ':to' => $to]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Un viaje, sólo si pertenece al conductor (scope estricto del portal).
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findForDriver(int $tripId, int $driverId, int $companyId): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT t.*, v.plate FROM trips t LEFT JOIN vehicles v ON v.id = t.vehicle_id
+             WHERE t.id = ? AND t.driver_id = ? AND t.company_id = ? LIMIT 1'
+        );
+        $stmt->execute([$tripId, $driverId, $companyId]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
+    /**
      * Abre un viaje y devuelve su id. Los agregados (distancia, velocidades,
      * duración) se completan al cerrarlo.
      */

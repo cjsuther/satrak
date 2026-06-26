@@ -5,6 +5,13 @@
   </div>
 
   <nav class="sidebar-nav" aria-label="Navegación principal">
+    {% if can('driver.portal') %}
+      {# Portal del conductor: navegación acotada a lo propio. #}
+      <span class="nav-section">Mi portal</span>
+      <a class="nav-item {{ current_path starts with '/portal/actividad' or current_path == '/portal' ? 'is-active' : '' }}" href="/portal/actividad"><span class="nav-ico">↻</span> Mi actividad</a>
+      <a class="nav-item {{ current_path starts with '/portal/ubicacion' ? 'is-active' : '' }}" href="/portal/ubicacion"><span class="nav-ico">◈</span> Mi última posición</a>
+      <a class="nav-item {{ current_path starts with '/portal/perfil' ? 'is-active' : '' }}" href="/portal/perfil"><span class="nav-ico">☉</span> Mi perfil</a>
+    {% else %}
     <a class="nav-item {{ current_path == '/dashboard' ? 'is-active' : '' }}" href="/dashboard">
       <span class="nav-ico">◎</span> Dashboard
     </a>
@@ -51,6 +58,7 @@
     {% if can('audit.global') or can('audit.company') %}
       <a class="nav-item" href="#" data-soon><span class="nav-ico">❘</span> Auditoría</a>
     {% endif %}
+    {% endif %}{# /driver.portal else #}
   </nav>
 
   <div class="sidebar-foot mono">v1 · {{ app.env }}</div>

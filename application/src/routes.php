@@ -20,6 +20,7 @@ use Satrak\Application\Controllers\ContextController;
 use Satrak\Application\Controllers\DashboardController;
 use Satrak\Application\Controllers\DeviceController;
 use Satrak\Application\Controllers\DriverController;
+use Satrak\Application\Controllers\DriverPortalController;
 use Satrak\Application\Controllers\GeofenceController;
 use Satrak\Application\Controllers\MapController;
 use Satrak\Application\Controllers\NotificationController;
@@ -135,6 +136,17 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
             $rp->get('/reportes', [ReportController::class, 'index']);
             $rp->get('/reportes/export', [ReportController::class, 'export']);
         })->add($requires(Perm::REPORTS_VIEW));
+
+        // Portal del conductor: scope estricto al driver_id del usuario (driver.portal).
+        $g->group('/portal', function (RouteCollectorProxy $p) {
+            $p->get('', [DriverPortalController::class, 'activity']);
+            $p->get('/actividad', [DriverPortalController::class, 'activity']);
+            $p->get('/viajes/{id:[0-9]+}', [DriverPortalController::class, 'trip']);
+            $p->get('/viajes/{id:[0-9]+}/track', [DriverPortalController::class, 'tripTrack']);
+            $p->get('/ubicacion', [DriverPortalController::class, 'lastPosition']);
+            $p->get('/perfil', [DriverPortalController::class, 'profile']);
+            $p->post('/perfil', [DriverPortalController::class, 'updateProfile']);
+        })->add($requires(Perm::DRIVER_PORTAL));
 
         // Usuarios.
         $g->group('/usuarios', function (RouteCollectorProxy $u) {

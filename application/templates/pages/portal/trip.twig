@@ -1,0 +1,44 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Mi recorrido{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/portal/actividad">Mi actividad</a> / recorrido</span>
+  <h1>{{ trip.plate ?? 'Viaje' }} · {{ trip.started_at|date('d/m H:i') }}</h1></div>
+</div>
+
+<div class="card kpi-strip">
+  <div><span class="kpi-label">Distancia</span><span class="mono">{{ trip.distance_km ?? 0 }} km</span></div>
+  <div><span class="kpi-label">Duración</span><span class="mono">{{ ((trip.duration_sec ?? 0) // 60) }} min</span></div>
+  <div><span class="kpi-label">Vel. máx</span><span class="mono">{{ trip.max_speed ?? 0 }} km/h</span></div>
+  <div><span class="kpi-label">Vel. prom</span><span class="mono">{{ trip.avg_speed ?? 0 }} km/h</span></div>
+</div>
+
+<div class="card map-canvas" style="min-height:480px;padding:0;overflow:hidden">
+  <div id="map" class="leaflet-map"
+       data-mode="history"
+       data-track-url="/portal/viajes/{{ trip.id }}/track"></div>
+
+  <div class="replay-bar" data-replay hidden>
+    <button type="button" class="btn btn-secondary btn-sm" data-replay-toggle aria-label="Reproducir">▶</button>
+    <input type="range" class="replay-scrub" min="0" max="100" value="0" step="1" data-replay-scrub aria-label="Posición">
+    <div class="replay-speeds" role="group" aria-label="Velocidad">
+      <button type="button" class="chip is-active" data-speed="1">1×</button>
+      <button type="button" class="chip" data-speed="2">2×</button>
+      <button type="button" class="chip" data-speed="4">4×</button>
+    </div>
+    <span class="replay-readout mono" data-replay-readout>—</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/assets/js/map.js" defer></script>
+{% endblock %}

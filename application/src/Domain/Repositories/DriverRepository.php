@@ -87,6 +87,15 @@ final class DriverRepository extends BaseRepository
         return $row ?: null;
     }
 
+    /** Actualiza sólo los datos de contacto (perfil del conductor, §9.4). */
+    public function updateContact(int $id, int $companyId, ?string $phone, ?string $email): void
+    {
+        $stmt = $this->db->prepare(
+            'UPDATE drivers SET phone = ?, email = ? WHERE id = ? AND company_id = ?'
+        );
+        $stmt->execute([$phone ?: null, $email ?: null, $id, $companyId]);
+    }
+
     /** Conductores activos de la empresa (para selects). @return array<int,array<string,mixed>> */
     public function activeForCompany(int $companyId): array
     {

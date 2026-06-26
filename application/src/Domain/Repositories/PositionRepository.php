@@ -45,6 +45,44 @@ final class PositionRepository
         return $row ?: null;
     }
 
+    /**
+     * Última posición atribuida a un conductor (portal: "mi última posición").
+     *
+     * @return array<string,mixed>|null
+     */
+    public function lastForDriver(int $driverId, int $companyId): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT p.id, p.device_id, p.ts, p.lat, p.lon, p.speed, p.heading, p.ignition, v.plate
+             FROM positions p
+             LEFT JOIN device_vehicle_assignments a ON a.device_id = p.device_id AND a.unassigned_at IS NULL
+             LEFT JOIN vehicles v ON v.id = a.vehicle_id
+             WHERE p.driver_id = ? AND p.company_id = ?
+             ORDER BY p.ts DESC, p.id DESC LIMIT 1'
+        );
+        $stmt->execute([$driverId, $companyId]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
+    /**
+     * Puntos de un viaje atribuidos a un conductor (track del portal, scope estricto).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function trackForDriver(int $deviceId, int $driverId, string $from, string $to): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT ts, lat, lon, speed, ignition FROM positions
+             WHERE device_id = ? AND driver_id = ? AND ts BETWEEN ? AND ?
+             ORDER BY ts ASC, id ASC'
+        );
+        $stmt->execute([$deviceId, $driverId, $from, $to]);
+
+        return $stmt->fetchAll();
+    }
+
     /** Asigna el conductor resuelto a una posición. */
     public function setDriver(int $positionId, ?int $driverId): void
     {

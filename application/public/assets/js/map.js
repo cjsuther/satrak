@@ -194,8 +194,10 @@
     var deviceId = mapEl.dataset.device;
     var from = mapEl.dataset.from;
     var to = mapEl.dataset.to;
-    var url = '/api/devices/' + encodeURIComponent(deviceId) + '/track'
-      + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to);
+    // El portal del conductor pasa su propia URL (scopeada al driver); si no,
+    // se arma el endpoint de monitoreo por dispositivo.
+    var url = mapEl.dataset.trackUrl || ('/api/devices/' + encodeURIComponent(deviceId) + '/track'
+      + '?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to));
 
     var bar = document.querySelector('[data-replay]');
     var toggleBtn = document.querySelector('[data-replay-toggle]');

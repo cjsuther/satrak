@@ -390,6 +390,14 @@ tr.is-ack{ opacity:.6; }
 .checkbox-pill:hover{ border-color:var(--teal-line); }
 .checkbox-pill input{ accent-color:var(--teal); }
 
+/* Tira de KPIs (portal del conductor) */
+.kpi-strip{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-5);
+  margin-bottom:var(--space-5); }
+.kpi-strip > div{ display:flex; flex-direction:column; gap:.15rem; }
+.kpi-strip .kpi-label{ color:var(--slate); font-size:11px; }
+.kpi-strip .mono{ color:var(--mist); }
+.kpi-strip .btn{ margin-left:auto; }
+
 /* Totales de reportes */
 .report-total td{ border-top:2px solid var(--teal-line); color:var(--mist); font-weight:600; }
 .data-table tfoot .mono{ color:var(--teal); }

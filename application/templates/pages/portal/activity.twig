@@ -1,0 +1,45 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Mi actividad{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Portal del conductor</span><h1>Mi actividad</h1></div>
+  <a class="btn btn-secondary" href="/portal/ubicacion">Mi última posición</a>
+</div>
+
+{% if lastPos %}
+  <div class="card kpi-strip">
+    <div><span class="kpi-label">Última posición</span>
+      <span class="mono">{{ lastPos.ts|date('d/m H:i') }} · {{ lastPos.speed ?? 0 }} km/h
+      · {{ lastPos.plate ?? 'sin vehículo' }}</span></div>
+    <a class="btn btn-secondary btn-sm" href="/portal/ubicacion">Ver en mapa</a>
+  </div>
+{% endif %}
+
+<form method="get" action="/portal/actividad" class="card filter-bar">
+  <label class="field"><span>Desde</span><input type="datetime-local" name="from" class="input" value="{{ from|date('Y-m-d\\TH:i') }}"></label>
+  <label class="field"><span>Hasta</span><input type="datetime-local" name="to" class="input" value="{{ to|date('Y-m-d\\TH:i') }}"></label>
+  <button type="submit" class="btn btn-primary">Aplicar</button>
+</form>
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr><th>Inicio</th><th>Vehículo</th><th class="ta-right">Km</th><th class="ta-right">Duración</th><th class="ta-right">Vel. máx</th><th>Estado</th><th class="ta-right"></th></tr></thead>
+    <tbody>
+      {% for t in trips %}
+        <tr>
+          <td class="mono muted">{{ t.started_at|date('d/m H:i') }}</td>
+          <td class="mono">{{ t.plate ?? '—' }}</td>
+          <td class="ta-right mono">{{ t.distance_km ?? 0 }}</td>
+          <td class="ta-right mono">{{ ((t.duration_sec ?? 0) // 60) }} min</td>
+          <td class="ta-right mono">{{ t.max_speed ?? 0 }}</td>
+          <td><span class="badge {{ t.ended_at ? 'badge-off' : 'badge-ok' }}"><span class="dot"></span>{{ t.ended_at ? 'cerrado' : 'en curso' }}</span></td>
+          <td class="ta-right"><a class="btn btn-secondary btn-sm" href="/portal/viajes/{{ t.id }}">Ver recorrido</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="muted">No tenés viajes en este período.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
