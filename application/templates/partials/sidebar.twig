@@ -5,8 +5,10 @@
   </div>
 
   <nav class="sidebar-nav" aria-label="Navegación principal">
-    {% if can('driver.portal') %}
-      {# Portal del conductor: navegación acotada a lo propio. #}
+    {% if current_user.role == 'driver' %}
+      {# Portal del conductor: navegación acotada a lo propio.
+         Se decide por ROL, no por can('driver.portal'): el super admin tiene el
+         permiso comodín '*' y, si no, también vería este menú. #}
       <span class="nav-section">Mi portal</span>
       <a class="nav-item {{ current_path starts with '/portal/actividad' or current_path == '/portal' ? 'is-active' : '' }}" href="/portal/actividad"><span class="nav-ico">↻</span> Mi actividad</a>
       <a class="nav-item {{ current_path starts with '/portal/ubicacion' ? 'is-active' : '' }}" href="/portal/ubicacion"><span class="nav-ico">◈</span> Mi última posición</a>
