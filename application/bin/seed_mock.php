@@ -33,11 +33,14 @@ $ticks    = isset($opts['ticks']) ? max(0, (int) $opts['ticks']) : 0;  // 0 = in
 $everySec = isset($opts['every']) ? max(1, (int) $opts['every']) : 5;
 
 if ($reset) {
-    foreach (['positions', 'device_events', 'trips', 'processor_state'] as $t) {
+    foreach ([
+        'positions', 'device_events', 'trips', 'processor_state',
+        'notifications', 'alerts', 'alert_rules', 'geofence_vehicles', 'geofences',
+    ] as $t) {
         $pdo->exec("DELETE FROM {$t}");
     }
     $pdo->exec('UPDATE devices SET last_position_id = NULL, last_seen_at = NULL');
-    echo "Reset: posiciones, eventos, viajes y estado del procesador borrados.\n";
+    echo "Reset: posiciones, eventos, viajes, alertas, notificaciones y geocercas borrados.\n";
 }
 
 // Punto de partida: zona Neuquén capital.
@@ -222,8 +225,71 @@ foreach ($devices as $device) {
     }
 }
 
+// -- Episodio de ralentí + SOS para el primer dispositivo (dispara idle y sos).
+$first = $devices[0] ?? null;
+if ($first !== null) {
+    $did = (int) $first['id'];
+    $cid = (int) $first['company_id'];
+    $iLat = $baseLat + $did * 0.01 + 0.02;
+    $iLon = $baseLon - $did * 0.01 + 0.02;
+    $t = strtotime('-90 minutes');
+
+    $insEv->execute([':company_id' => $cid, ':device_id' => $did, ':ts' => date('Y-m-d H:i:s', $t),
+        ':event_type' => 'ignition_on', ':pin_code' => null]);
+    $totalEv++;
+    // 14 puntos detenidos con motor encendido, 1/min -> 14 min > umbral de ralentí (10).
+    for ($k = 0; $k < 14; $k++) {
+        $insPos->execute([':company_id' => $cid, ':device_id' => $did, ':ts' => date('Y-m-d H:i:s', $t),
+            ':lat' => round($iLat, 7), ':lon' => round($iLon, 7),
+            ':speed' => 0, ':heading' => 0, ':ignition' => 1, ':sat' => mt_rand(6, 12)]);
+        $totalPos++;
+        $t += 60;
+    }
+    // SOS en medio del ralentí.
+    $insEv->execute([':company_id' => $cid, ':device_id' => $did, ':ts' => date('Y-m-d H:i:s', strtotime('-85 minutes')),
+        ':event_type' => 'sos', ':pin_code' => null]);
+    $totalEv++;
+    $insEv->execute([':company_id' => $cid, ':device_id' => $did, ':ts' => date('Y-m-d H:i:s', $t),
+        ':event_type' => 'ignition_off', ':pin_code' => null]);
+    $totalEv++;
+}
+
+// -- Configuración de alertas demo por empresa (geocerca + reglas), idempotente.
+$companies = array_values(array_unique(array_map(static fn ($d) => (int) $d['company_id'], $devices)));
+$rulesSeeded = 0;
+foreach ($companies as $cid) {
+    $has = $pdo->prepare('SELECT COUNT(*) FROM alert_rules WHERE company_id = ?');
+    $has->execute([$cid]);
+    if ((int) $has->fetchColumn() > 0) {
+        continue; // ya tiene reglas: no piso configuración existente.
+    }
+
+    // Geocerca circular cerca del arranque del primer dispositivo de la empresa.
+    $dev1 = null;
+    foreach ($devices as $d) {
+        if ((int) $d['company_id'] === $cid) { $dev1 = (int) $d['id']; break; }
+    }
+    $gLat = $baseLat + ($dev1 ?? 1) * 0.01 + 0.002;
+    $gLon = $baseLon - ($dev1 ?? 1) * 0.01 + 0.0015;
+    $geom = json_encode(['lat' => round($gLat, 7), 'lon' => round($gLon, 7), 'radius_m' => 600]);
+    $pdo->prepare('INSERT INTO geofences (company_id, name, shape, geometry, active) VALUES (?,?,?,?,1)')
+        ->execute([$cid, 'Base Neuquén', 'circle', $geom]);
+    $gid = (int) $pdo->lastInsertId();
+
+    $insRule = $pdo->prepare(
+        'INSERT INTO alert_rules (company_id, type, params, channels, recipients, active) VALUES (?,?,?,?,NULL,1)'
+    );
+    $insRule->execute([$cid, 'speed', json_encode(['max_kmh' => 90]), json_encode(['inapp', 'email'])]);
+    $insRule->execute([$cid, 'sos', null, json_encode(['inapp', 'email'])]);
+    $insRule->execute([$cid, 'idle', json_encode(['minutes' => 10]), json_encode(['inapp'])]);
+    $insRule->execute([$cid, 'offline', json_encode(['minutes' => 30]), json_encode(['inapp'])]);
+    $insRule->execute([$cid, 'geofence_enter', json_encode(['geofence_id' => $gid]), json_encode(['inapp'])]);
+    $insRule->execute([$cid, 'geofence_exit', json_encode(['geofence_id' => $gid]), json_encode(['inapp'])]);
+    $rulesSeeded++;
+}
+
 printf(
-    "Seed OK · %d dispositivos · %d posiciones · %d eventos generados.\n",
-    count($devices), $totalPos, $totalEv
+    "Seed OK · %d dispositivos · %d posiciones · %d eventos · config de alertas para %d empresa(s).\n",
+    count($devices), $totalPos, $totalEv, $rulesSeeded
 );
 echo "Ahora corré:  php bin/processor.php\n";

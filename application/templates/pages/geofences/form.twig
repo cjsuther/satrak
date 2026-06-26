@@ -1,0 +1,88 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ mode == 'create' ? 'Nueva geocerca' : 'Editar geocerca' }}{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/geocercas">Geocercas</a> / {{ mode == 'create' ? 'nueva' : 'editar' }}</span>
+  <h1>{{ mode == 'create' ? 'Nueva geocerca' : g.name }}</h1></div>
+</div>
+
+<form method="post" action="{{ mode == 'create' ? '/geocercas' : '/geocercas/' ~ g.id }}" class="card form-card" novalidate
+      data-geofence-form>
+  {{ csrf_field() }}
+  <input type="hidden" name="shape" value="{{ g.shape }}" data-shape>
+  <input type="hidden" name="geometry" value='{{ g.geometry|default("") }}' data-geometry>
+
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Nombre *</span>
+      <input class="input" name="name" value="{{ g.name|default('') }}" required autofocus>
+      {% if errors.name is defined %}<small class="field-error">{{ errors.name }}</small>{% endif %}
+    </label>
+
+    {% if mode == 'create' %}
+      <label class="field">
+        <span class="field-label">Forma</span>
+        <select class="input" data-shape-select>
+          <option value="circle" {{ g.shape == 'circle' ? 'selected' }}>Círculo (centro + radio)</option>
+          <option value="polygon" {{ g.shape == 'polygon' ? 'selected' }}>Polígono (vértices)</option>
+        </select>
+      </label>
+    {% endif %}
+
+    {% if mode == 'edit' %}
+      <label class="field">
+        <span class="field-label">Estado</span>
+        <select class="input" name="active">
+          <option value="1" {{ g.active ? 'selected' }}>Activa</option>
+          <option value="0" {{ not g.active ? 'selected' }}>Inactiva</option>
+        </select>
+      </label>
+    {% endif %}
+  </div>
+
+  <div class="geofence-editor">
+    <div class="geofence-tools">
+      <span class="muted" data-draw-hint>Hacé clic en el mapa para definir la geocerca.</span>
+      <span class="geofence-radius" data-radius-wrap hidden>
+        Radio: <input type="range" min="100" max="5000" step="50" value="600" data-radius>
+        <span class="mono" data-radius-label>600 m</span>
+      </span>
+      <button type="button" class="btn btn-secondary btn-sm" data-clear>Limpiar</button>
+    </div>
+    <div id="geofence-map" class="leaflet-map geofence-map"></div>
+    {% if errors.geometry is defined %}<small class="field-error">{{ errors.geometry }}</small>{% endif %}
+  </div>
+
+  <fieldset class="field" style="border:0;padding:0;margin-top:var(--space-5)">
+    <span class="field-label">Alcance (vehículos)</span>
+    <p class="muted" style="font-size:var(--fs-mono);margin:.2rem 0 .6rem">Sin seleccionar = aplica a todos los vehículos.</p>
+    <div class="checkbox-grid">
+      {% for v in vehicles %}
+        <label class="checkbox-pill">
+          <input type="checkbox" name="vehicle_ids[]" value="{{ v.id }}" {{ v.id in selectedIds ? 'checked' }}>
+          <span class="mono">{{ v.plate }}</span>
+        </label>
+      {% else %}
+        <span class="muted">No hay vehículos activos.</span>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/geocercas">Cancelar</a>
+    <button class="btn btn-primary" type="submit">{{ mode == 'create' ? 'Crear geocerca' : 'Guardar cambios' }}</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="/assets/js/geofence.js" defer></script>
+{% endblock %}

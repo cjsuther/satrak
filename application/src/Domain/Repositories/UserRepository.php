@@ -102,6 +102,28 @@ final class UserRepository extends BaseRepository
         ]);
     }
 
+    /**
+     * Destinatarios de alertas de una empresa: admins y operadores activos
+     * (los que monitorean). Para notificaciones in-app y email (§12).
+     *
+     * @return array<int,array{id:int,name:string,email:string}>
+     */
+    public function alertRecipients(int $companyId): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT id, name, email FROM users
+             WHERE company_id = ? AND status = 'active' AND role IN ('company_admin','operator')
+             ORDER BY role, name"
+        );
+        $stmt->execute([$companyId]);
+
+        return array_map(static fn ($r) => [
+            'id'    => (int) $r['id'],
+            'name'  => (string) $r['name'],
+            'email' => (string) $r['email'],
+        ], $stmt->fetchAll());
+    }
+
     /** ¿El email ya existe (opcionalmente excluyendo un id)? */
     public function emailTaken(string $email, ?int $exceptId = null): bool
     {

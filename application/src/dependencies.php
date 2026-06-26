@@ -106,6 +106,16 @@ return [
             return $c->get(Rbac::class)->roleCan($c->get(Auth::class)->role(), $permission);
         }));
 
+        // json_decode: para leer columnas JSON (params/channels de reglas) en vistas.
+        $env->addFilter(new \Twig\TwigFilter('json_decode', static function ($json) {
+            if (is_array($json)) {
+                return $json;
+            }
+            $d = is_string($json) && $json !== '' ? json_decode($json, true) : null;
+
+            return is_array($d) ? $d : [];
+        }));
+
         return $twig;
     },
 ];

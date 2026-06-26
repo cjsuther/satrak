@@ -21,6 +21,16 @@ final class VehicleRepository extends BaseRepository
         return $row ?: null;
     }
 
+    /** Por id, sin scope (uso interno del procesador con ids ya confiables). @return array<string,mixed>|null */
+    public function findById(int $id): ?array
+    {
+        $stmt = $this->db->prepare('SELECT id, plate FROM vehicles WHERE id = ? LIMIT 1');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
     public function plateTaken(string $plate, int $companyId, ?int $exceptId = null): bool
     {
         $stmt = $this->db->prepare('SELECT id FROM vehicles WHERE company_id = ? AND plate = ? LIMIT 1');

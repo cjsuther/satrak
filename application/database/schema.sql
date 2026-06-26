@@ -208,6 +208,7 @@ CREATE TABLE IF NOT EXISTS processor_state (
   current_driver_id BIGINT UNSIGNED NULL,                -- conductor resuelto vigente
   last_position_id  BIGINT UNSIGNED NULL,                -- cursor: última posición procesada
   open_trip_id      BIGINT UNSIGNED NULL,                -- viaje en curso (NULL = sin viaje)
+  alert_state       JSON NULL,                           -- motor de alertas: {speeding, idle_since, idle_fired, inside:[geofence_id]}
   updated_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX (company_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

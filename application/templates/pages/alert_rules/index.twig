@@ -1,0 +1,44 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Reglas de alerta{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Monitoreo</span><h1>Reglas de alerta</h1></div>
+  <a class="btn btn-primary" href="/reglas-alerta/nueva">+ Nueva regla</a>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr><th>Tipo</th><th>Parámetros</th><th>Canales</th><th>Estado</th><th class="ta-right">Acciones</th></tr></thead>
+    <tbody>
+      {% for r in rules %}
+        {% set params = r.params ? r.params|json_decode : {} %}
+        {% set channels = r.channels ? r.channels|json_decode : [] %}
+        <tr>
+          <td><strong>{{ labels[r.type] ?? r.type }}</strong></td>
+          <td class="mono muted">
+            {% if r.type == 'speed' %}{{ params.max_kmh ?? '?' }} km/h
+            {% elseif r.type in ['idle','offline'] %}{{ params.minutes ?? '?' }} min
+            {% elseif r.type in ['geofence_enter','geofence_exit'] %}{{ geofenceNames[params.geofence_id] ?? ('geocerca #' ~ params.geofence_id) }}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% for ch in channels %}<span class="tag">{{ ch == 'inapp' ? 'in-app' : ch }}</span> {% endfor %}
+          </td>
+          <td><span class="badge {{ r.active ? 'badge-ok' : 'badge-off' }}"><span class="dot"></span>{{ r.active ? 'activa' : 'inactiva' }}</span></td>
+          <td class="ta-right actions">
+            <a class="btn btn-secondary btn-sm" href="/reglas-alerta/{{ r.id }}/editar">Editar</a>
+            <form method="post" action="/reglas-alerta/{{ r.id }}/eliminar" class="inline-form"
+                  data-confirm="¿Eliminar esta regla de {{ labels[r.type] ?? r.type }}?">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">Eliminar</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">No hay reglas todavía. Creá una para empezar a detectar.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

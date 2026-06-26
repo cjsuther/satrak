@@ -81,4 +81,69 @@
   });
 
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideModal(); });
+
+  // --- Campana de notificaciones (§16): polling + marcar leídas --------------
+  (function bell() {
+    var root = document.querySelector('[data-bell]');
+    if (!root) return;
+    var badge = root.querySelector('[data-bell-count]');
+    var list = root.querySelector('[data-bell-list]');
+    var readAll = root.querySelector('[data-bell-readall]');
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    var token = meta ? meta.getAttribute('content') : '';
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
+    }
+
+    function render(data) {
+      var n = data.count || 0;
+      if (badge) {
+        badge.textContent = n > 99 ? '99+' : n;
+        badge.hidden = n === 0;
+      }
+      if (!list) return;
+      var items = data.notifications || [];
+      if (!items.length) {
+        list.innerHTML = '<li class="bell-empty muted">Sin notificaciones nuevas.</li>';
+        return;
+      }
+      list.innerHTML = items.map(function (it) {
+        return '<li class="bell-item" data-id="' + it.id + '">' +
+          '<span class="bell-title">' + esc(it.title) + '</span>' +
+          '<span class="bell-body muted">' + esc(it.body || '') + '</span></li>';
+      }).join('');
+      list.querySelectorAll('[data-id]').forEach(function (li) {
+        li.addEventListener('click', function () { markRead(li.getAttribute('data-id')); });
+      });
+    }
+
+    function poll() {
+      fetch('/api/notifications/unread', { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (res) { if (res.ok) render(res.data); })
+        .catch(function () {});
+    }
+
+    function markRead(id) {
+      fetch('/api/notifications/' + id + '/read', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-CSRF-Token': token }
+      }).then(function () { poll(); }).catch(function () {});
+    }
+
+    if (readAll) readAll.addEventListener('click', function () {
+      fetch('/api/notifications/read-all', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Accept': 'application/json', 'X-CSRF-Token': token }
+      }).then(function () { poll(); }).catch(function () {});
+    });
+
+    document.addEventListener('click', function (e) { if (!root.contains(e.target)) root.removeAttribute('open'); });
+
+    poll();
+    setInterval(poll, 20000);
+  })();
 })();

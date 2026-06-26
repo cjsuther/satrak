@@ -20,9 +20,23 @@
   </div>
 
   <div class="topbar-actions">
-    <button class="icon-btn" type="button" title="Notificaciones" data-soon aria-label="Notificaciones">
-      ◔<span class="bell-badge" hidden></span>
-    </button>
+    <div class="bell">
+      <details data-bell>
+        <summary class="icon-btn" title="Notificaciones" aria-label="Notificaciones">
+          ◔<span class="bell-badge" data-bell-count hidden></span>
+        </summary>
+        <div class="bell-dropdown">
+          <div class="bell-head">
+            <strong>Notificaciones</strong>
+            <button type="button" class="link-btn" data-bell-readall>Marcar todas</button>
+          </div>
+          <ul class="bell-list" data-bell-list>
+            <li class="bell-empty muted">Sin notificaciones nuevas.</li>
+          </ul>
+          <a class="bell-foot" href="/alertas">Ver todas las alertas →</a>
+        </div>
+      </details>
+    </div>
 
     <div class="user-menu">
       <details>

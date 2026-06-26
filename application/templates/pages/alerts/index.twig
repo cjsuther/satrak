@@ -1,0 +1,58 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Alertas{% endblock %}
+
+{% set typeLabels = {
+  'speed': 'Exceso de velocidad', 'geofence_enter': 'Entrada a geocerca',
+  'geofence_exit': 'Salida de geocerca', 'idle': 'Ralentí',
+  'offline': 'Sin señal', 'sos': 'SOS'
+} %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Monitoreo</span><h1>Alertas</h1>
+    <p class="muted"><span class="mono">{{ unacked }}</span> sin reconocer</p>
+  </div>
+  <div class="map-filters" role="group" aria-label="Filtrar">
+    <a class="chip {{ status == 'open' ? 'is-active' : '' }}" href="/alertas?status=open">Sin reconocer</a>
+    <a class="chip {{ status == 'ack' ? 'is-active' : '' }}" href="/alertas?status=ack">Reconocidas</a>
+    <a class="chip {{ status == 'all' ? 'is-active' : '' }}" href="/alertas?status=all">Todas</a>
+  </div>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr>
+      <th>Severidad</th><th>Tipo</th><th>Mensaje</th><th>Vehículo</th><th>Conductor</th><th>Cuándo</th><th class="ta-right">Acción</th>
+    </tr></thead>
+    <tbody>
+      {% for a in alerts %}
+        <tr class="{{ a.acknowledged_at ? 'is-ack' : '' }}">
+          <td>
+            <span class="badge {{ a.severity == 'critical' ? 'badge-crit' : (a.severity == 'warning' ? 'badge-alert' : 'badge-ok') }}">
+              <span class="dot"></span> {{ a.severity }}
+            </span>
+          </td>
+          <td>{{ typeLabels[a.type] ?? a.type }}</td>
+          <td>{{ a.message }}</td>
+          <td class="mono">{{ a.plate ?? '—' }}</td>
+          <td>{{ a.driver_name ?: 'No identificado' }}</td>
+          <td class="mono muted">{{ a.ts|date('d/m H:i') }}</td>
+          <td class="ta-right">
+            {% if a.acknowledged_at %}
+              <span class="mono muted">✓ {{ a.acknowledged_at|date('d/m H:i') }}</span>
+            {% else %}
+              <form method="post" action="/alertas/{{ a.id }}/ack" class="inline-form">
+                {{ csrf_field() }}
+                <button class="btn btn-secondary btn-sm" type="submit">Reconocer</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="muted">No hay alertas {{ status == 'open' ? 'sin reconocer' : '' }}.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

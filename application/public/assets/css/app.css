@@ -349,6 +349,47 @@ small{ font-size:var(--fs-sm); }
   .unit-list, .trip-list{ max-height:200px; }
 }
 
+/* ===== Alertas / geocercas / notificaciones (Fase 6) ===== */
+.badge-crit{ color:#FFB23E; }
+.badge-crit .dot{ background:#FF6B6B; box-shadow:0 0 0 3px rgba(255,107,107,.18); }
+tr.is-ack{ opacity:.6; }
+
+/* Campana */
+.bell{ position:relative; }
+.bell details{ position:relative; }
+.bell summary{ list-style:none; cursor:pointer; }
+.bell summary::-webkit-details-marker{ display:none; }
+.bell-badge{ position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; padding:0 4px;
+  border-radius:999px; background:var(--amber); color:var(--ink); font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; }
+.bell-dropdown{ position:absolute; right:0; top:calc(100% + 8px); width:320px; max-width:86vw;
+  background:var(--surface-2); border:1px solid var(--surface-line); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg); z-index:600; overflow:hidden; }
+.bell-head{ display:flex; align-items:center; justify-content:space-between; padding:.6rem .8rem;
+  border-bottom:1px solid var(--surface-line); }
+.bell-list{ list-style:none; margin:0; padding:0; max-height:360px; overflow-y:auto; }
+.bell-item{ display:flex; flex-direction:column; gap:2px; padding:.6rem .8rem; cursor:pointer;
+  border-bottom:1px solid var(--surface-line); }
+.bell-item:hover{ background:var(--surface-1); }
+.bell-title{ font-size:var(--fs-sm); color:var(--mist); }
+.bell-body{ font-size:11px; }
+.bell-empty{ padding:1rem .8rem; font-size:var(--fs-sm); }
+.bell-foot{ display:block; padding:.6rem .8rem; text-align:center; font-size:var(--fs-mono);
+  color:var(--teal); border-top:1px solid var(--surface-line); }
+
+/* Editor de geocercas */
+.geofence-editor{ margin-top:var(--space-4); }
+.geofence-tools{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-4); margin-bottom:var(--space-3); }
+.geofence-radius{ display:inline-flex; align-items:center; gap:var(--space-2); }
+.geofence-map{ position:relative; height:380px; border-radius:var(--radius-sm); overflow:hidden; }
+
+/* Checkboxes en grilla (alcance / canales) */
+.checkbox-grid{ display:flex; flex-wrap:wrap; gap:.5rem; }
+.checkbox-pill{ display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .7rem;
+  border:1px solid var(--surface-line); border-radius:999px; cursor:pointer; font-size:var(--fs-sm); }
+.checkbox-pill:hover{ border-color:var(--teal-line); }
+.checkbox-pill input{ accent-color:var(--teal); }
+
 @media (prefers-reduced-motion: reduce){
   *{ animation:none !important; transition:none !important; }
 }

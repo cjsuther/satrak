@@ -22,7 +22,7 @@ final class ProcessorStateRepository
     /**
      * Estado del dispositivo. Si no existe, devuelve un estado vacío (cursor 0).
      *
-     * @return array{device_id:int,company_id:int,current_pin:?string,current_driver_id:?int,last_position_id:int,open_trip_id:?int}
+     * @return array{device_id:int,company_id:int,current_pin:?string,current_driver_id:?int,last_position_id:int,open_trip_id:?int,alert_state:array<string,mixed>}
      */
     public function get(int $deviceId, int $companyId): array
     {
@@ -38,7 +38,14 @@ final class ProcessorStateRepository
                 'current_driver_id' => null,
                 'last_position_id'  => 0,
                 'open_trip_id'      => null,
+                'alert_state'       => [],
             ];
+        }
+
+        $alertState = [];
+        if (!empty($row['alert_state'])) {
+            $decoded = json_decode((string) $row['alert_state'], true);
+            $alertState = is_array($decoded) ? $decoded : [];
         }
 
         return [
@@ -48,11 +55,14 @@ final class ProcessorStateRepository
             'current_driver_id' => $row['current_driver_id'] !== null ? (int) $row['current_driver_id'] : null,
             'last_position_id'  => (int) ($row['last_position_id'] ?? 0),
             'open_trip_id'      => $row['open_trip_id'] !== null ? (int) $row['open_trip_id'] : null,
+            'alert_state'       => $alertState,
         ];
     }
 
     /**
      * Persiste el estado del dispositivo (upsert).
+     *
+     * @param array<string,mixed> $alertState estado del motor de alertas
      */
     public function save(
         int $deviceId,
@@ -60,17 +70,19 @@ final class ProcessorStateRepository
         ?string $currentPin,
         ?int $currentDriverId,
         int $lastPositionId,
-        ?int $openTripId
+        ?int $openTripId,
+        array $alertState = []
     ): void {
         $stmt = $this->db->prepare(
             'INSERT INTO processor_state
-                (device_id, company_id, current_pin, current_driver_id, last_position_id, open_trip_id)
-             VALUES (:device_id, :company_id, :current_pin, :current_driver_id, :last_position_id, :open_trip_id)
+                (device_id, company_id, current_pin, current_driver_id, last_position_id, open_trip_id, alert_state)
+             VALUES (:device_id, :company_id, :current_pin, :current_driver_id, :last_position_id, :open_trip_id, :alert_state)
              ON DUPLICATE KEY UPDATE
                 current_pin       = VALUES(current_pin),
                 current_driver_id = VALUES(current_driver_id),
                 last_position_id  = VALUES(last_position_id),
-                open_trip_id      = VALUES(open_trip_id)'
+                open_trip_id      = VALUES(open_trip_id),
+                alert_state       = VALUES(alert_state)'
         );
         $stmt->execute([
             ':device_id'         => $deviceId,
@@ -79,6 +91,7 @@ final class ProcessorStateRepository
             ':current_driver_id' => $currentDriverId,
             ':last_position_id'  => $lastPositionId,
             ':open_trip_id'      => $openTripId,
+            ':alert_state'       => $alertState !== [] ? json_encode($alertState, JSON_UNESCAPED_UNICODE) : null,
         ]);
     }
 }

@@ -19,14 +19,22 @@
 
 declare(strict_types=1);
 
+use Satrak\Domain\Repositories\AlertRepository;
+use Satrak\Domain\Repositories\AlertRuleRepository;
 use Satrak\Domain\Repositories\AssignmentRepository;
 use Satrak\Domain\Repositories\DeviceDriverLinkRepository;
 use Satrak\Domain\Repositories\DeviceEventRepository;
 use Satrak\Domain\Repositories\DeviceRepository;
 use Satrak\Domain\Repositories\DriverRepository;
+use Satrak\Domain\Repositories\GeofenceRepository;
+use Satrak\Domain\Repositories\NotificationRepository;
 use Satrak\Domain\Repositories\PositionRepository;
 use Satrak\Domain\Repositories\ProcessorStateRepository;
 use Satrak\Domain\Repositories\TripRepository;
+use Satrak\Domain\Repositories\UserRepository;
+use Satrak\Domain\Repositories\VehicleRepository;
+use Satrak\Domain\Services\AlertEngine;
+use Satrak\Domain\Services\Mailer;
 use Satrak\Domain\Services\PinResolver;
 use Satrak\Domain\Services\TripBuilder;
 
@@ -49,7 +57,21 @@ $stateRepo    = new ProcessorStateRepository($pdo);
 $assignRepo   = new AssignmentRepository($pdo);
 
 $resolver = new PinResolver($driverRepo, $linkRepo);
-$builder  = new TripBuilder(
+
+// Motor de alertas (§12): reglas configurables -> alerts + notifications + email.
+$alertEngine = new AlertEngine(
+    new AlertRuleRepository($pdo),
+    new GeofenceRepository($pdo),
+    new AlertRepository($pdo),
+    new NotificationRepository($pdo),
+    new UserRepository($pdo),
+    new VehicleRepository($pdo),
+    new Mailer($config['smtp'], dirname(__DIR__) . '/storage/logs'),
+    (int) ($config['tracking']['offline_minutes'] ?? 30),
+    (int) ($config['tracking']['idle_minutes'] ?? 10),
+);
+
+$builder = new TripBuilder(
     $positionRepo,
     $eventRepo,
     $tripRepo,
@@ -58,6 +80,7 @@ $builder  = new TripBuilder(
     $assignRepo,
     $resolver,
     $stopSeconds,
+    $alertEngine,
 );
 
 $started = microtime(true);
@@ -91,9 +114,32 @@ foreach ($devices as $device) {
     }
 }
 
+// --- Chequeo periódico de offline (no depende de posiciones nuevas) ---------
+$offlineRows = $pdo->query(
+    "SELECT d.id, d.company_id, d.last_seen_at,
+            (SELECT a.vehicle_id FROM device_vehicle_assignments a
+             WHERE a.device_id = d.id AND a.unassigned_at IS NULL LIMIT 1) AS vehicle_id
+     FROM devices d WHERE d.status = 'active'"
+)->fetchAll();
+foreach ($offlineRows as $d) {
+    $pdo->beginTransaction();
+    try {
+        $alertEngine->checkOffline([
+            'id'           => (int) $d['id'],
+            'company_id'   => (int) $d['company_id'],
+            'last_seen_at' => $d['last_seen_at'],
+            'vehicle_id'   => $d['vehicle_id'] !== null ? (int) $d['vehicle_id'] : null,
+        ]);
+        $pdo->commit();
+    } catch (\Throwable $e) {
+        $pdo->rollBack();
+        fwrite(STDERR, "ERROR offline dispositivo {$d['id']}: {$e->getMessage()}\n");
+    }
+}
+
 $ms = (int) round((microtime(true) - $started) * 1000);
 printf(
-    "Procesador OK · %d dispositivos · %d posiciones · %d eventos · viajes +%d/-%d · %d ms\n",
+    "Procesador OK · %d dispositivos · %d posiciones · %d eventos · viajes +%d/-%d · %d alertas · %d ms\n",
     count($devices), $totals['positions'], $totals['events'],
-    $totals['trips_opened'], $totals['trips_closed'], $ms
+    $totals['trips_opened'], $totals['trips_closed'], $alertEngine->firedCount(), $ms
 );

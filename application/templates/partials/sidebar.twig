@@ -22,11 +22,12 @@
     {% endif %}
 
     {% if can('alerts.ack') %}
-      <a class="nav-item" href="#" data-soon><span class="nav-ico">△</span> Alertas</a>
+      <a class="nav-item {{ current_path starts with '/alertas' ? 'is-active' : '' }}" href="/alertas"><span class="nav-ico">△</span> Alertas</a>
     {% endif %}
 
     {% if can('geofences.manage') %}
-      <a class="nav-item" href="#" data-soon><span class="nav-ico">⬡</span> Geocercas</a>
+      <a class="nav-item {{ current_path starts with '/geocercas' ? 'is-active' : '' }}" href="/geocercas"><span class="nav-ico">⬡</span> Geocercas</a>
+      <a class="nav-item {{ current_path starts with '/reglas-alerta' ? 'is-active' : '' }}" href="/reglas-alerta"><span class="nav-ico">◬</span> Reglas de alerta</a>
     {% endif %}
 
     {% if can('reports.view') %}

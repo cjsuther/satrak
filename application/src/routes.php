@@ -11,6 +11,8 @@ declare(strict_types=1);
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Satrak\Application\Controllers\AlertController;
+use Satrak\Application\Controllers\AlertRuleController;
 use Satrak\Application\Controllers\AssignmentController;
 use Satrak\Application\Controllers\AuthController;
 use Satrak\Application\Controllers\CompanyController;
@@ -18,7 +20,9 @@ use Satrak\Application\Controllers\ContextController;
 use Satrak\Application\Controllers\DashboardController;
 use Satrak\Application\Controllers\DeviceController;
 use Satrak\Application\Controllers\DriverController;
+use Satrak\Application\Controllers\GeofenceController;
 use Satrak\Application\Controllers\MapController;
+use Satrak\Application\Controllers\NotificationController;
 use Satrak\Application\Controllers\UserController;
 use Satrak\Application\Controllers\VehicleController;
 use Satrak\Application\Middleware\AuthMiddleware;
@@ -70,6 +74,12 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
     $group->post('/logout', [AuthController::class, 'logout']);
     $group->get('/dashboard', [DashboardController::class, 'index']);
 
+    // Notificaciones in-app del usuario (campana). Disponibles para todo usuario
+    // autenticado; no requieren contexto de empresa.
+    $group->get('/api/notifications/unread', [NotificationController::class, 'unread']);
+    $group->post('/api/notifications/{id:[0-9]+}/read', [NotificationController::class, 'read']);
+    $group->post('/api/notifications/read-all', [NotificationController::class, 'readAll']);
+
     // Context switch del super admin.
     $group->post('/context/{id:[0-9]+}', [ContextController::class, 'enter'])->add($requires(Perm::CONTEXT_SWITCH));
     $group->post('/context/exit', [ContextController::class, 'exit'])->add($requires(Perm::CONTEXT_SWITCH));
@@ -93,6 +103,31 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
             $m->get('/api/live/positions', [MapController::class, 'livePositions']);
             $m->get('/api/devices/{id:[0-9]+}/track', [MapController::class, 'track']);
         })->add($requires(Perm::MONITORING_VIEW));
+
+        // Alertas: pantalla + ACK + endpoints JSON (alerts.ack).
+        $g->group('', function (RouteCollectorProxy $a) {
+            $a->get('/alertas', [AlertController::class, 'index']);
+            $a->post('/alertas/{id:[0-9]+}/ack', [AlertController::class, 'ack']);
+            $a->get('/api/alerts/recent', [AlertController::class, 'recent']);
+            $a->post('/api/alerts/{id:[0-9]+}/ack', [AlertController::class, 'ackJson']);
+        })->add($requires(Perm::ALERTS_ACK));
+
+        // Geocercas y reglas de alerta (geofences.manage).
+        $g->group('', function (RouteCollectorProxy $gf) {
+            $gf->get('/geocercas', [GeofenceController::class, 'index']);
+            $gf->get('/geocercas/nueva', [GeofenceController::class, 'createForm']);
+            $gf->post('/geocercas', [GeofenceController::class, 'store']);
+            $gf->get('/geocercas/{id:[0-9]+}/editar', [GeofenceController::class, 'editForm']);
+            $gf->post('/geocercas/{id:[0-9]+}', [GeofenceController::class, 'update']);
+            $gf->post('/geocercas/{id:[0-9]+}/eliminar', [GeofenceController::class, 'delete']);
+
+            $gf->get('/reglas-alerta', [AlertRuleController::class, 'index']);
+            $gf->get('/reglas-alerta/nueva', [AlertRuleController::class, 'createForm']);
+            $gf->post('/reglas-alerta', [AlertRuleController::class, 'store']);
+            $gf->get('/reglas-alerta/{id:[0-9]+}/editar', [AlertRuleController::class, 'editForm']);
+            $gf->post('/reglas-alerta/{id:[0-9]+}', [AlertRuleController::class, 'update']);
+            $gf->post('/reglas-alerta/{id:[0-9]+}/eliminar', [AlertRuleController::class, 'delete']);
+        })->add($requires(Perm::GEOFENCES_MANAGE));
 
         // Usuarios.
         $g->group('/usuarios', function (RouteCollectorProxy $u) {

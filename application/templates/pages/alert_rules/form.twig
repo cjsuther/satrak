@@ -1,0 +1,100 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ mode == 'create' ? 'Nueva regla' : 'Editar regla' }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/reglas-alerta">Reglas de alerta</a> / {{ mode == 'create' ? 'nueva' : 'editar' }}</span>
+  <h1>{{ mode == 'create' ? 'Nueva regla' : labels[r.type] }}</h1></div>
+</div>
+
+<form method="post" action="{{ mode == 'create' ? '/reglas-alerta' : '/reglas-alerta/' ~ r.id }}" class="card form-card" novalidate>
+  {{ csrf_field() }}
+
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Tipo de alerta</span>
+      {% if mode == 'create' %}
+        <select class="input" name="type" data-rule-type>
+          {% for t in types %}<option value="{{ t }}" {{ r.type == t ? 'selected' }}>{{ labels[t] }}</option>{% endfor %}
+        </select>
+      {% else %}
+        <input class="input" value="{{ labels[r.type] }}" disabled>
+        <input type="hidden" name="type" value="{{ r.type }}">
+      {% endif %}
+      {% if errors.type is defined %}<small class="field-error">{{ errors.type }}</small>{% endif %}
+    </label>
+
+    {# speed #}
+    <label class="field" data-param="speed" {{ r.type != 'speed' ? 'hidden' }}>
+      <span class="field-label">Velocidad máxima (km/h)</span>
+      <input class="input mono" type="number" name="max_kmh" min="1" value="{{ r.params.max_kmh|default(90) }}">
+      {% if errors.max_kmh is defined %}<small class="field-error">{{ errors.max_kmh }}</small>{% endif %}
+    </label>
+
+    {# idle / offline #}
+    <label class="field" data-param="minutes" {{ r.type not in ['idle','offline'] ? 'hidden' }}>
+      <span class="field-label">Minutos</span>
+      <input class="input mono" type="number" name="minutes" min="1" value="{{ r.params.minutes|default(10) }}">
+      {% if errors.minutes is defined %}<small class="field-error">{{ errors.minutes }}</small>{% endif %}
+    </label>
+
+    {# geofence #}
+    <label class="field" data-param="geofence_id" {{ r.type not in ['geofence_enter','geofence_exit'] ? 'hidden' }}>
+      <span class="field-label">Geocerca</span>
+      <select class="input" name="geofence_id">
+        <option value="">Elegí…</option>
+        {% for g in geofences %}<option value="{{ g.id }}" {{ r.params.geofence_id == g.id ? 'selected' }}>{{ g.name }}</option>{% endfor %}
+      </select>
+      {% if errors.geofence_id is defined %}<small class="field-error">{{ errors.geofence_id }}</small>{% endif %}
+    </label>
+  </div>
+
+  <fieldset class="field" style="border:0;padding:0;margin-top:var(--space-4)">
+    <span class="field-label">Canales</span>
+    <div class="checkbox-grid">
+      <label class="checkbox-pill"><input type="checkbox" name="ch_inapp" value="1" {{ 'inapp' in r.channels ? 'checked' }}> <span>In-app</span></label>
+      <label class="checkbox-pill"><input type="checkbox" name="ch_email" value="1" {{ 'email' in r.channels ? 'checked' }}> <span>Email</span></label>
+    </div>
+  </fieldset>
+
+  <label class="field" style="margin-top:var(--space-4)">
+    <span class="field-label">Destinatarios extra (emails, separados por coma)</span>
+    <input class="input" name="recipients" value="{{ r.recipients is iterable ? r.recipients|join(', ') : r.recipients|default('') }}"
+           placeholder="jefe@empresa.com, guardia@empresa.com">
+  </label>
+
+  {% if mode == 'edit' %}
+    <label class="field" style="margin-top:var(--space-4)">
+      <span class="field-label">Estado</span>
+      <select class="input" name="active">
+        <option value="1" {{ r.active ? 'selected' }}>Activa</option>
+        <option value="0" {{ not r.active ? 'selected' }}>Inactiva</option>
+      </select>
+    </label>
+  {% endif %}
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/reglas-alerta">Cancelar</a>
+    <button class="btn btn-primary" type="submit">{{ mode == 'create' ? 'Crear regla' : 'Guardar cambios' }}</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Muestra sólo los parámetros del tipo elegido.
+  (function () {
+    var sel = document.querySelector('[data-rule-type]');
+    if (!sel) return;
+    var map = { speed: ['speed'], idle: ['minutes'], offline: ['minutes'],
+                geofence_enter: ['geofence_id'], geofence_exit: ['geofence_id'], sos: [] };
+    function sync() {
+      var show = map[sel.value] || [];
+      document.querySelectorAll('[data-param]').forEach(function (el) {
+        el.hidden = show.indexOf(el.getAttribute('data-param')) === -1;
+      });
+    }
+    sel.addEventListener('change', sync); sync();
+  })();
+</script>
+{% endblock %}

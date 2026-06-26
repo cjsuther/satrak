@@ -38,6 +38,7 @@ final class TripBuilder
         private AssignmentRepository $assignments,
         private PinResolver $resolver,
         private int $tripStopSeconds,
+        private ?AlertEngine $alerts = null,
     ) {
     }
 
@@ -67,6 +68,7 @@ final class TripBuilder
         // Estado vigente que arrastramos a lo largo del timeline.
         $currentPin   = $st['current_pin'];
         $driverNow    = $st['current_driver_id'];
+        $alertState   = $st['alert_state'];            // motor de alertas (se persiste con el resto)
         $openTripId   = $st['open_trip_id'];
         $openTripDrv  = $st['current_driver_id'];      // invariante: el viaje abierto lleva este conductor
         $openTripFrom = null;                          // started_at del viaje abierto (se carga si hace falta)
@@ -123,7 +125,14 @@ final class TripBuilder
                         $openTripFrom = null;
                     }
                 }
-                // ignition_on / sos / power_cut / low_battery: sin efecto en Fase 4.
+                // ignition_on / power_cut / low_battery: sin efecto en viajes.
+                // SOS dispara alerta crítica (motor de alertas, §12).
+                if ($type === 'sos') {
+                    $this->alerts?->onEvent(
+                        ['company_id' => $companyId, 'device_id' => $deviceId, 'vehicle_id' => $vehicleId, 'driver_id' => $driverNow],
+                        $ev
+                    );
+                }
 
                 $this->events->markProcessed($item['id']);
                 $stats['events']++;
@@ -174,6 +183,13 @@ final class TripBuilder
             $this->positions->setDriver($posId, $driverId);
             $driverNow = $driverId;
 
+            // Motor de alertas: evalúa speed / geocercas / idle sobre esta posición.
+            $this->alerts?->onPosition(
+                ['company_id' => $companyId, 'device_id' => $deviceId, 'vehicle_id' => $vehicleId, 'driver_id' => $driverId],
+                $pos,
+                $alertState
+            );
+
             $lastPosId = $posId;
             $lastPosTs = $ts;
             $stats['positions']++;
@@ -194,7 +210,7 @@ final class TripBuilder
             $this->devices->updateLastPosition($deviceId, $lastPosId, $lastPosTs);
         }
 
-        $this->state->save($deviceId, $companyId, $currentPin, $driverNow, $lastPosId, $openTripId);
+        $this->state->save($deviceId, $companyId, $currentPin, $driverNow, $lastPosId, $openTripId, $alertState);
 
         return $stats;
     }
