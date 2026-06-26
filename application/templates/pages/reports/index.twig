@@ -1,0 +1,129 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Reportes{% endblock %}
+
+{% set typeLabels = {
+  'speed': 'Exceso de velocidad', 'geofence_enter': 'Entrada a geocerca',
+  'geofence_exit': 'Salida de geocerca', 'idle': 'Ralentí', 'offline': 'Sin señal', 'sos': 'SOS'
+} %}
+{% set fromLocal = from|date('Y-m-d\\TH:i') %}
+{% set toLocal = to|date('Y-m-d\\TH:i') %}
+{% set qs = 'r=' ~ kind ~ '&from=' ~ from|url_encode ~ '&to=' ~ to|url_encode
+   ~ (vehicle_id ? '&vehicle_id=' ~ vehicle_id : '')
+   ~ (driver_id ? '&driver_id=' ~ driver_id : '')
+   ~ (type ? '&type=' ~ type : '') ~ (severity ? '&severity=' ~ severity : '') ~ (status ? '&status=' ~ status : '') %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Análisis</span><h1>Reportes</h1></div>
+  <a class="btn btn-secondary" href="/reportes/export?{{ qs }}">↓ Exportar CSV</a>
+</div>
+
+<div class="map-filters" role="tablist" style="margin-bottom:var(--space-5)">
+  <a class="chip {{ kind == 'vehicle' ? 'is-active' : '' }}" href="/reportes?r=vehicle">Por vehículo</a>
+  <a class="chip {{ kind == 'driver' ? 'is-active' : '' }}" href="/reportes?r=driver">Por conductor</a>
+  <a class="chip {{ kind == 'alerts' ? 'is-active' : '' }}" href="/reportes?r=alerts">Alertas</a>
+</div>
+
+<form method="get" action="/reportes" class="card filter-bar">
+  <input type="hidden" name="r" value="{{ kind }}">
+  <label class="field"><span>Desde</span><input type="datetime-local" name="from" class="input" value="{{ fromLocal }}"></label>
+  <label class="field"><span>Hasta</span><input type="datetime-local" name="to" class="input" value="{{ toLocal }}"></label>
+
+  {% if kind == 'vehicle' %}
+    <label class="field"><span>Vehículo</span>
+      <select name="vehicle_id" class="input">
+        <option value="">Todos</option>
+        {% for v in vehicles %}<option value="{{ v.id }}" {{ v.id == vehicle_id ? 'selected' }}>{{ v.plate }}</option>{% endfor %}
+      </select>
+    </label>
+  {% elseif kind == 'driver' %}
+    <label class="field"><span>Conductor</span>
+      <select name="driver_id" class="input">
+        <option value="">Todos</option>
+        {% for d in drivers %}<option value="{{ d.id }}" {{ d.id == driver_id ? 'selected' }}>{{ d.first_name }} {{ d.last_name }}</option>{% endfor %}
+      </select>
+    </label>
+  {% else %}
+    <label class="field"><span>Tipo</span>
+      <select name="type" class="input">
+        <option value="">Todos</option>
+        {% for t, lbl in typeLabels %}<option value="{{ t }}" {{ t == type ? 'selected' }}>{{ lbl }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Severidad</span>
+      <select name="severity" class="input">
+        <option value="">Todas</option>
+        {% for s in ['info','warning','critical'] %}<option value="{{ s }}" {{ s == severity ? 'selected' }}>{{ s }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Estado</span>
+      <select name="status" class="input">
+        <option value="" {{ status == '' ? 'selected' }}>Todas</option>
+        <option value="open" {{ status == 'open' ? 'selected' }}>Sin reconocer</option>
+        <option value="ack" {{ status == 'ack' ? 'selected' }}>Reconocidas</option>
+      </select>
+    </label>
+  {% endif %}
+
+  <button type="submit" class="btn btn-primary">Aplicar</button>
+</form>
+
+<div class="card">
+  {% if kind == 'alerts' %}
+    <table class="data-table">
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Severidad</th><th>Vehículo</th><th>Conductor</th><th>Mensaje</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for a in rows %}
+          <tr>
+            <td class="mono muted">{{ a.ts|date('d/m H:i') }}</td>
+            <td>{{ typeLabels[a.type] ?? a.type }}</td>
+            <td><span class="badge {{ a.severity == 'critical' ? 'badge-crit' : (a.severity == 'warning' ? 'badge-alert' : 'badge-ok') }}"><span class="dot"></span>{{ a.severity }}</span></td>
+            <td class="mono">{{ a.plate ?? '—' }}</td>
+            <td>{{ a.driver_name ?: 'No identificado' }}</td>
+            <td>{{ a.message }}</td>
+            <td class="mono muted">{{ a.acknowledged_at ? '✓' : '—' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="muted">Sin alertas en el período.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <table class="data-table">
+      <thead><tr>
+        <th>{{ kind == 'driver' ? 'Conductor' : 'Vehículo' }}</th>
+        <th class="ta-right">Viajes</th><th class="ta-right">Km</th><th class="ta-right">Tiempo</th>
+        <th class="ta-right">Vel. máx</th><th class="ta-right">Vel. prom</th><th class="ta-right">Excesos</th>
+        {% if kind == 'vehicle' %}<th class="ta-right">Geocercas</th>{% endif %}
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td><strong>{{ r.label }}</strong></td>
+            <td class="ta-right mono">{{ r.trips }}</td>
+            <td class="ta-right mono">{{ r.km }}</td>
+            <td class="ta-right mono">{{ (r.duration_sec // 60) }} min</td>
+            <td class="ta-right mono">{{ r.max_speed }}</td>
+            <td class="ta-right mono">{{ r.avg_speed }}</td>
+            <td class="ta-right mono">{{ r.speed_alerts }}</td>
+            {% if kind == 'vehicle' %}<td class="ta-right mono">{{ r.geofence_alerts }}</td>{% endif %}
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="muted">Sin viajes en el período.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if rows is not empty %}
+        <tfoot><tr class="report-total">
+          <td><strong>Total</strong></td>
+          <td class="ta-right mono">{{ totals.trips }}</td>
+          <td class="ta-right mono">{{ totals.km }}</td>
+          <td class="ta-right mono">{{ (totals.duration_sec // 60) }} min</td>
+          <td class="ta-right mono">—</td><td class="ta-right mono">—</td>
+          <td class="ta-right mono">{{ totals.speed_alerts }}</td>
+          {% if kind == 'vehicle' %}<td class="ta-right mono">—</td>{% endif %}
+        </tr></tfoot>
+      {% endif %}
+    </table>
+  {% endif %}
+</div>
+{% endblock %}

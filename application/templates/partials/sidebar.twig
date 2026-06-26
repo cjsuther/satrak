@@ -31,7 +31,7 @@
     {% endif %}
 
     {% if can('reports.view') %}
-      <a class="nav-item" href="#" data-soon><span class="nav-ico">▤</span> Reportes</a>
+      <a class="nav-item {{ current_path starts with '/reportes' ? 'is-active' : '' }}" href="/reportes"><span class="nav-ico">▤</span> Reportes</a>
     {% endif %}
 
     {% if can('fleet.manage') or can('users.manage') %}

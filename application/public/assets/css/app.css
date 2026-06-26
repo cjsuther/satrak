@@ -390,6 +390,10 @@ tr.is-ack{ opacity:.6; }
 .checkbox-pill:hover{ border-color:var(--teal-line); }
 .checkbox-pill input{ accent-color:var(--teal); }
 
+/* Totales de reportes */
+.report-total td{ border-top:2px solid var(--teal-line); color:var(--mist); font-weight:600; }
+.data-table tfoot .mono{ color:var(--teal); }
+
 @media (prefers-reduced-motion: reduce){
   *{ animation:none !important; transition:none !important; }
 }

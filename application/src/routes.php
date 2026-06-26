@@ -23,6 +23,7 @@ use Satrak\Application\Controllers\DriverController;
 use Satrak\Application\Controllers\GeofenceController;
 use Satrak\Application\Controllers\MapController;
 use Satrak\Application\Controllers\NotificationController;
+use Satrak\Application\Controllers\ReportController;
 use Satrak\Application\Controllers\UserController;
 use Satrak\Application\Controllers\VehicleController;
 use Satrak\Application\Middleware\AuthMiddleware;
@@ -128,6 +129,12 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
             $gf->post('/reglas-alerta/{id:[0-9]+}', [AlertRuleController::class, 'update']);
             $gf->post('/reglas-alerta/{id:[0-9]+}/eliminar', [AlertRuleController::class, 'delete']);
         })->add($requires(Perm::GEOFENCES_MANAGE));
+
+        // Reportes: por vehículo / conductor / alertas + export CSV (reports.view).
+        $g->group('', function (RouteCollectorProxy $rp) {
+            $rp->get('/reportes', [ReportController::class, 'index']);
+            $rp->get('/reportes/export', [ReportController::class, 'export']);
+        })->add($requires(Perm::REPORTS_VIEW));
 
         // Usuarios.
         $g->group('/usuarios', function (RouteCollectorProxy $u) {
