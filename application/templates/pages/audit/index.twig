@@ -1,0 +1,33 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Auditoría{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Seguridad</span><h1>Auditoría</h1>
+    <p class="muted">{{ isGlobal ? 'Vista global (todas las empresas)' : 'Actividad de la empresa' }} · últimas {{ entries|length }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr>
+      <th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalle</th><th>IP</th>
+    </tr></thead>
+    <tbody>
+      {% for e in entries %}
+        <tr>
+          <td class="mono muted">{{ e.created_at|date('d/m/Y H:i:s') }}</td>
+          <td>{{ e.user_name ?? '—' }}</td>
+          <td><span class="tag">{{ e.action }}</span></td>
+          <td class="mono muted">{{ e.entity_type ? e.entity_type ~ (e.entity_id ? ' #' ~ e.entity_id : '') : '—' }}</td>
+          <td class="mono muted">{{ e.changes ? e.changes : '—' }}</td>
+          <td class="mono muted">{{ e.ip ?? '—' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">No hay registros de auditoría.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

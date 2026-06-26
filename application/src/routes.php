@@ -14,6 +14,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Satrak\Application\Controllers\AlertController;
 use Satrak\Application\Controllers\AlertRuleController;
 use Satrak\Application\Controllers\AssignmentController;
+use Satrak\Application\Controllers\AuditController;
 use Satrak\Application\Controllers\AuthController;
 use Satrak\Application\Controllers\CompanyController;
 use Satrak\Application\Controllers\ContextController;
@@ -81,6 +82,10 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
     $group->get('/api/notifications/unread', [NotificationController::class, 'unread']);
     $group->post('/api/notifications/{id:[0-9]+}/read', [NotificationController::class, 'read']);
     $group->post('/api/notifications/read-all', [NotificationController::class, 'readAll']);
+
+    // Auditoría: global para super admin (sin contexto), por empresa para el resto.
+    // Fuera del grupo de contexto para que el super admin la vea en vista global.
+    $group->get('/auditoria', [AuditController::class, 'index'])->add($requires(Perm::AUDIT_COMPANY));
 
     // Context switch del super admin.
     $group->post('/context/{id:[0-9]+}', [ContextController::class, 'enter'])->add($requires(Perm::CONTEXT_SWITCH));
