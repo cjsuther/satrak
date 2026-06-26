@@ -82,6 +82,21 @@
 
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideModal(); });
 
+  // Formulario de reglas de alerta: muestra sólo los parámetros del tipo elegido.
+  (function ruleParams() {
+    var sel = document.querySelector('[data-rule-type]');
+    if (!sel) return;
+    var map = { speed: ['speed'], idle: ['minutes'], offline: ['minutes'],
+                geofence_enter: ['geofence_id'], geofence_exit: ['geofence_id'], sos: [] };
+    function sync() {
+      var show = map[sel.value] || [];
+      document.querySelectorAll('[data-param]').forEach(function (el) {
+        el.hidden = show.indexOf(el.getAttribute('data-param')) === -1;
+      });
+    }
+    sel.addEventListener('change', sync); sync();
+  })();
+
   // --- Campana de notificaciones (§16): polling + marcar leídas --------------
   (function bell() {
     var root = document.querySelector('[data-bell]');

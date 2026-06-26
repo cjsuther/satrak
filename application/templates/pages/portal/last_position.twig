@@ -22,6 +22,7 @@
 
   <div class="card map-canvas" style="min-height:440px;padding:0;overflow:hidden">
     <div id="map" class="leaflet-map"
+         data-mode="point"
          data-lat="{{ pos.lat }}" data-lon="{{ pos.lon }}"
          data-label="{{ (pos.plate ?? 'Mi unidad') ~ ' · ' ~ (pos.speed ?? 0) ~ ' km/h' }}"></div>
   </div>
@@ -34,16 +35,6 @@
 {% if pos %}
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script>
-    (function () {
-      var el = document.getElementById('map');
-      if (!el || typeof L === 'undefined') return;
-      var lat = parseFloat(el.dataset.lat), lon = parseFloat(el.dataset.lon);
-      var map = L.map(el).setView([lat, lon], 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
-      L.circleMarker([lat, lon], { radius: 9, weight: 2, color: '#050E1F', fillColor: '#1FE0C4', fillOpacity: 1 })
-        .addTo(map).bindPopup(el.dataset.label).openPopup();
-    })();
-  </script>
+  <script src="/assets/js/map.js" defer></script>
 {% endif %}
 {% endblock %}

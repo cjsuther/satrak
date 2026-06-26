@@ -80,21 +80,4 @@
 </form>
 {% endblock %}
 
-{% block scripts %}
-<script>
-  // Muestra sólo los parámetros del tipo elegido.
-  (function () {
-    var sel = document.querySelector('[data-rule-type]');
-    if (!sel) return;
-    var map = { speed: ['speed'], idle: ['minutes'], offline: ['minutes'],
-                geofence_enter: ['geofence_id'], geofence_exit: ['geofence_id'], sos: [] };
-    function sync() {
-      var show = map[sel.value] || [];
-      document.querySelectorAll('[data-param]').forEach(function (el) {
-        el.hidden = show.indexOf(el.getAttribute('data-param')) === -1;
-      });
-    }
-    sel.addEventListener('change', sync); sync();
-  })();
-</script>
-{% endblock %}
+{# El toggle de parámetros por tipo vive en app.js (CSP no permite scripts inline). #}

@@ -43,6 +43,20 @@
 
   if (mapEl.dataset.mode === 'live') initLive();
   else if (mapEl.dataset.mode === 'history') initHistory();
+  else if (mapEl.dataset.mode === 'point') initPoint();
+
+  /* ======================================================================
+   * MODO PUNTO — una sola posición (portal: "mi última posición")
+   * ==================================================================== */
+  function initPoint() {
+    var lat = parseFloat(mapEl.dataset.lat);
+    var lon = parseFloat(mapEl.dataset.lon);
+    if (isNaN(lat) || isNaN(lon)) return;
+    var map = buildMap();
+    map.setView([lat, lon], 15);
+    var m = L.circleMarker([lat, lon], { radius: 9, weight: 2, color: '#050E1F', fillColor: COLORS.movimiento, fillOpacity: 1 }).addTo(map);
+    if (mapEl.dataset.label) m.bindPopup(mapEl.dataset.label).openPopup();
+  }
 
   /* ======================================================================
    * MODO VIVO — polling + marcadores por estado
