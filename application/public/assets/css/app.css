@@ -160,11 +160,13 @@ small{ font-size:var(--fs-sm); }
 
 .app-main{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .topbar{
-  height:var(--topbar-h); display:flex; align-items:center; gap:var(--space-4);
-  padding:0 var(--space-6); border-bottom:1px solid var(--surface-line);
+  min-height:var(--topbar-h); display:flex; align-items:center; gap:var(--space-4);
+  padding:.5rem var(--space-6); border-bottom:1px solid var(--surface-line);
   background:var(--navy-080); backdrop-filter:blur(8px); position:sticky; top:0; z-index:20;
 }
-.topbar-context{ flex:1; display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; }
+.topbar-context{ flex:1; min-width:0; display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; }
+.topbar-context .readout{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.topbar-actions{ flex:none; }
 .topbar-actions{ display:flex; align-items:center; gap:var(--space-4); }
 .inline-form{ display:inline; }
 .icon-btn{ background:transparent; border:1px solid var(--surface-line); color:var(--mist);
@@ -408,6 +410,23 @@ tr.is-ack{ opacity:.6; }
 /* Totales de reportes */
 .report-total td{ border-top:2px solid var(--teal-line); color:var(--mist); font-weight:600; }
 .data-table tfoot .mono{ color:var(--teal); }
+
+/* ===== Mobile: header compacto + tablas con scroll ===== */
+/* Las tablas anchas (mono/IMEI/IP sin cortes) scrollean dentro de su card en vez
+   de romper el ancho de la página. :has cubre las cards que contienen tabla. */
+.card:has(> .data-table){ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.card:has(> .data-table) .data-table{ min-width:560px; }
+
+@media (max-width: 720px){
+  .topbar{ padding:.45rem var(--space-4); gap:var(--space-3); }
+  .topbar-actions{ gap:var(--space-2); }
+  .user-meta{ display:none; }                 /* en mobile, sólo el avatar */
+  .page-head{ flex-wrap:wrap; align-items:flex-start; }
+  .filter-bar{ gap:var(--space-3); }
+  .filter-bar .field, .filter-bar .input, .search-form .input{ width:100%; min-width:0; }
+  .search-form{ flex:1; flex-wrap:wrap; }
+  .data-table th, .data-table td{ padding:.55rem .5rem; }
+}
 
 @media (prefers-reduced-motion: reduce){
   *{ animation:none !important; transition:none !important; }
