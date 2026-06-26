@@ -1,33 +1,82 @@
 {% extends "layouts/app.twig" %}
 {% block title %}Auditoría{% endblock %}
 
+{# Querystring con los filtros vigentes (sin page) para paginación y orden. #}
+{% set baseQs = 'q=' ~ q|url_encode ~ '&action=' ~ action|url_encode
+   ~ '&from=' ~ from|url_encode ~ '&to=' ~ to|url_encode %}
+{% macro sortLink(label, col, page, baseQs) %}
+  {% set isCol = page.sort == col %}
+  {% set nextDir = isCol and page.dir == 'asc' ? 'desc' : 'asc' %}
+  <a class="sort-link {{ isCol ? 'is-sorted' : '' }}" href="/auditoria?{{ baseQs }}&sort={{ col }}&dir={{ nextDir }}">
+    {{ label }}{{ isCol ? (page.dir == 'asc' ? ' ▲' : ' ▼') : '' }}
+  </a>
+{% endmacro %}
+{% import _self as h %}
+
 {% block content %}
 <div class="page-head">
   <div>
     <span class="eyebrow">Seguridad</span><h1>Auditoría</h1>
-    <p class="muted">{{ isGlobal ? 'Vista global (todas las empresas)' : 'Actividad de la empresa' }} · últimas {{ entries|length }}</p>
+    <p class="muted">{{ isGlobal ? 'Vista global (todas las empresas)' : 'Actividad de la empresa' }}</p>
   </div>
+</div>
+
+<form method="get" action="/auditoria" class="card filter-bar">
+  <label class="field"><span>Buscar</span>
+    <input class="input" type="search" name="q" value="{{ q }}" placeholder="acción, entidad, usuario, IP…">
+  </label>
+  <label class="field"><span>Acción</span>
+    <select class="input" name="action">
+      <option value="">Todas</option>
+      {% for a in actions %}<option value="{{ a }}" {{ a == action ? 'selected' }}>{{ a }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field"><span>Desde</span><input class="input" type="datetime-local" name="from" value="{{ from }}"></label>
+  <label class="field"><span>Hasta</span><input class="input" type="datetime-local" name="to" value="{{ to }}"></label>
+  <button class="btn btn-primary" type="submit">Filtrar</button>
+  {% if q or action or from or to %}<a class="btn btn-secondary" href="/auditoria">Limpiar</a>{% endif %}
+</form>
+
+<div class="list-toolbar">
+  <span class="list-count mono">{{ page.total }} resultado{{ page.total == 1 ? '' : 's' }}</span>
+  {% if page.pages > 1 %}<span class="page-indicator mono">Página {{ page.page }} de {{ page.pages }}</span>{% endif %}
 </div>
 
 <div class="card">
   <table class="data-table">
     <thead><tr>
-      <th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th><th>Detalle</th><th>IP</th>
+      <th>{{ h.sortLink('Fecha', 'date', page, baseQs) }}</th>
+      <th>{{ h.sortLink('Usuario', 'user', page, baseQs) }}</th>
+      <th>{{ h.sortLink('Acción', 'action', page, baseQs) }}</th>
+      <th>Entidad</th><th>Detalle</th><th>IP</th>
     </tr></thead>
     <tbody>
-      {% for e in entries %}
+      {% for e in page.rows %}
         <tr>
           <td class="mono muted">{{ e.created_at|date('d/m/Y H:i:s') }}</td>
           <td>{{ e.user_name ?? '—' }}</td>
           <td><span class="tag">{{ e.action }}</span></td>
           <td class="mono muted">{{ e.entity_type ? e.entity_type ~ (e.entity_id ? ' #' ~ e.entity_id : '') : '—' }}</td>
-          <td class="mono muted">{{ e.changes ? e.changes : '—' }}</td>
+          <td class="mono muted detail-cell">{{ e.changes ?: '—' }}</td>
           <td class="mono muted">{{ e.ip ?? '—' }}</td>
         </tr>
       {% else %}
-        <tr><td colspan="6" class="muted">No hay registros de auditoría.</td></tr>
+        <tr><td colspan="6" class="muted">No hay registros para los filtros aplicados.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+
+{% if page.pages > 1 %}
+  {% set ss = '&sort=' ~ page.sort ~ '&dir=' ~ page.dir %}
+  <nav class="pagination" aria-label="Paginación">
+    {% if page.page > 1 %}
+      <a class="btn btn-secondary btn-sm" href="/auditoria?{{ baseQs }}{{ ss }}&page={{ page.page - 1 }}">← Anterior</a>
+    {% else %}<span class="btn btn-secondary btn-sm is-disabled">← Anterior</span>{% endif %}
+    <span class="page-indicator mono">Página {{ page.page }} de {{ page.pages }}</span>
+    {% if page.page < page.pages %}
+      <a class="btn btn-secondary btn-sm" href="/auditoria?{{ baseQs }}{{ ss }}&page={{ page.page + 1 }}">Siguiente →</a>
+    {% else %}<span class="btn btn-secondary btn-sm is-disabled">Siguiente →</span>{% endif %}
+  </nav>
+{% endif %}
 {% endblock %}

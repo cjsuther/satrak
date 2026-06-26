@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace Satrak\Domain\Repositories;
 
 use PDO;
+use Satrak\Application\Support\Listing;
 
 /**
  * Registro de auditoría (`audit_log`) de escrituras sensibles y login.
+ *
+ * Extiende BaseRepository para la búsqueda/orden/paginación seguras del visor.
  */
-final class AuditRepository
+final class AuditRepository extends BaseRepository
 {
-    public function __construct(private PDO $db)
-    {
-    }
-
     /**
      * @param array<string,mixed>|null $changes diff/contexto serializable a JSON
      */
@@ -69,5 +68,68 @@ final class AuditRepository
         $stmt->execute();
 
         return $stmt->fetchAll();
+    }
+
+    /**
+     * Listado paginado con búsqueda (acción/entidad/usuario/IP) y filtros por
+     * acción y rango de fechas. `companyId` null = vista global (super admin).
+     *
+     * @return array{rows:array<int,array<string,mixed>>,total:int,page:int,pages:int,per_page:int,sort:string,dir:string}
+     */
+    public function listPaginated(
+        ?int $companyId,
+        Listing $listing,
+        ?string $action = null,
+        ?string $from = null,
+        ?string $to = null
+    ): array {
+        $whereSql = [];
+        $bind = [];
+
+        if ($companyId !== null) {
+            $whereSql[] = 'a.company_id = :cid';
+            $bind[':cid'] = $companyId;
+        }
+        if ($action !== null && $action !== '') {
+            $whereSql[] = 'a.action = :action';
+            $bind[':action'] = $action;
+        }
+        if ($from !== null && $from !== '') {
+            $whereSql[] = 'a.created_at >= :from';
+            $bind[':from'] = $from;
+        }
+        if ($to !== null && $to !== '') {
+            $whereSql[] = 'a.created_at <= :to';
+            $bind[':to'] = $to;
+        }
+
+        return $this->paginate(
+            'audit_log a LEFT JOIN users u ON u.id = a.user_id',
+            ['a.id', 'a.company_id', 'a.user_id', 'a.action', 'a.entity_type', 'a.entity_id',
+                'a.changes', 'a.ip', 'a.created_at', 'u.name AS user_name'],
+            $whereSql,
+            $bind,
+            ['a.action', 'a.entity_type', 'u.name', 'a.ip'],
+            ['date' => 'a.created_at', 'action' => 'a.action', 'user' => 'u.name'],
+            $listing,
+            'date'
+        );
+    }
+
+    /**
+     * Acciones distintas presentes (para el filtro desplegable).
+     *
+     * @return string[]
+     */
+    public function distinctActions(?int $companyId): array
+    {
+        if ($companyId === null) {
+            $stmt = $this->db->query('SELECT DISTINCT action FROM audit_log ORDER BY action');
+        } else {
+            $stmt = $this->db->prepare('SELECT DISTINCT action FROM audit_log WHERE company_id = ? ORDER BY action');
+            $stmt->execute([$companyId]);
+        }
+
+        return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 }
