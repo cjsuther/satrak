@@ -43,6 +43,37 @@ final class UserRepository extends BaseRepository
         $stmt->execute([$hash, $id]);
     }
 
+    /**
+     * Super admins (usuarios globales, company_id NULL). Para la gestión §9.1.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function listSuperAdmins(): array
+    {
+        return $this->db->query(
+            "SELECT id, name, email, status, last_login_at, created_at
+             FROM users WHERE company_id IS NULL AND role = 'super_admin'
+             ORDER BY name"
+        )->fetchAll();
+    }
+
+    /** @return array<string,mixed>|null */
+    public function findSuperAdmin(int $id): ?array
+    {
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ? AND company_id IS NULL AND role = 'super_admin' LIMIT 1");
+        $stmt->execute([$id]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
+    /** Cambia el estado (activo/deshabilitado) de un usuario. */
+    public function setStatus(int $id, string $status): void
+    {
+        $stmt = $this->db->prepare('UPDATE users SET status = ? WHERE id = ?');
+        $stmt->execute([$status === 'disabled' ? 'disabled' : 'active', $id]);
+    }
+
     /** Actualiza sólo el nombre visible (perfil propio). */
     public function updateName(int $id, string $name): void
     {

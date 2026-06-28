@@ -1,0 +1,34 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Nuevo super admin{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/super-admins">Super Admins</a> / nuevo</span>
+  <h1>Nuevo super admin</h1></div>
+</div>
+
+<form method="post" action="/super-admins" class="card form-card" novalidate>
+  {{ csrf_field() }}
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Nombre *</span>
+      <input class="input" name="name" value="{{ sa.name }}" required autofocus>
+      {% if errors.name is defined %}<small class="field-error">{{ errors.name }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Email *</span>
+      <input class="input mono" type="email" name="email" value="{{ sa.email }}" required>
+      {% if errors.email is defined %}<small class="field-error">{{ errors.email }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Contraseña * (mín. 8)</span>
+      <input class="input" type="password" name="password" autocomplete="new-password" required>
+      {% if errors.password is defined %}<small class="field-error">{{ errors.password }}</small>{% endif %}
+    </label>
+  </div>
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/super-admins">Cancelar</a>
+    <button class="btn btn-primary" type="submit">Crear super admin</button>
+  </div>
+</form>
+{% endblock %}

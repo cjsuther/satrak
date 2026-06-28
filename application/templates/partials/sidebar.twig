@@ -22,6 +22,9 @@
       <a class="nav-item {{ current_path starts with '/empresas' ? 'is-active' : '' }}" href="/empresas">
         <span class="nav-ico">▣</span> Empresas
       </a>
+      <a class="nav-item {{ current_path starts with '/super-admins' ? 'is-active' : '' }}" href="/super-admins">
+        <span class="nav-ico">★</span> Super Admins
+      </a>
     {% endif %}
 
     {% if can('monitoring.view') %}

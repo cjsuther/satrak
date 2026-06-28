@@ -27,6 +27,7 @@ use Satrak\Application\Controllers\MapController;
 use Satrak\Application\Controllers\NotificationController;
 use Satrak\Application\Controllers\ProfileController;
 use Satrak\Application\Controllers\ReportController;
+use Satrak\Application\Controllers\SuperAdminController;
 use Satrak\Application\Controllers\UserController;
 use Satrak\Application\Controllers\VehicleController;
 use Satrak\Application\Middleware\AuthMiddleware;
@@ -104,6 +105,14 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
         $g->get('/{id:[0-9]+}/editar', [CompanyController::class, 'editForm']);
         $g->post('/{id:[0-9]+}', [CompanyController::class, 'update']);
         $g->post('/{id:[0-9]+}/estado', [CompanyController::class, 'toggleStatus']);
+    })->add($requires(Perm::COMPANIES_MANAGE));
+
+    // Super Admins (usuarios globales de Satrak). Sólo super admin.
+    $group->group('/super-admins', function (RouteCollectorProxy $g) {
+        $g->get('', [SuperAdminController::class, 'index']);
+        $g->get('/nuevo', [SuperAdminController::class, 'createForm']);
+        $g->post('', [SuperAdminController::class, 'store']);
+        $g->post('/{id:[0-9]+}/estado', [SuperAdminController::class, 'toggleStatus']);
     })->add($requires(Perm::COMPANIES_MANAGE));
 
     // --- ABM scopeado a empresa (requiere contexto) -------------------------

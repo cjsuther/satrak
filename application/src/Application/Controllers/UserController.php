@@ -22,9 +22,6 @@ use Slim\Views\Twig;
  */
 final class UserController
 {
-    /** Roles que un admin de empresa puede asignar (no crea otros admins). */
-    private const ASSIGNABLE_ROLES = ['operator', 'driver'];
-
     public function __construct(
         private Twig $twig,
         private Auth $auth,
@@ -43,6 +40,20 @@ final class UserController
     private function hashAlgo(): string
     {
         return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
+    }
+
+    /**
+     * Roles asignables desde el ABM de la empresa. El super admin (operando en
+     * contexto) puede crear admins de empresa; un admin de empresa sólo crea
+     * operadores y conductores (matriz §5: company_admins.manage es del super admin).
+     *
+     * @return string[]
+     */
+    private function assignableRoles(): array
+    {
+        return $this->auth->isSuperAdmin()
+            ? ['company_admin', 'operator', 'driver']
+            : ['operator', 'driver'];
     }
 
     public function index(Request $request, Response $response): Response
@@ -76,7 +87,7 @@ final class UserController
             'mode'    => 'create',
             'u'       => ['role' => $preDriver ? 'driver' : 'operator', 'status' => 'active', 'driver_id' => $preDriver ?: null],
             'drivers' => $this->drivers->activeForCompany($companyId),
-            'roles'   => self::ASSIGNABLE_ROLES,
+            'roles'   => $this->assignableRoles(),
         ]);
     }
 
@@ -200,7 +211,7 @@ final class UserController
         $errors = $v->errors();
 
         $role = (string) ($d['role'] ?? '');
-        if (!in_array($role, self::ASSIGNABLE_ROLES, true)) {
+        if (!in_array($role, $this->assignableRoles(), true)) {
             $errors['role'] = 'Rol inválido.';
         }
         if ($role === 'driver' && (int) ($d['driver_id'] ?? 0) <= 0) {
@@ -227,7 +238,7 @@ final class UserController
             'mode'    => $mode,
             'u'       => $u,
             'drivers' => $this->drivers->activeForCompany($companyId),
-            'roles'   => self::ASSIGNABLE_ROLES,
+            'roles'   => $this->assignableRoles(),
             'errors'  => $errors,
         ]);
     }

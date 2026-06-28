@@ -1,0 +1,39 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Super Admins{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Satrak</span><h1>Super Admins</h1>
+  <p class="muted">Usuarios globales con acceso a todas las empresas.</p></div>
+  <a class="btn btn-primary" href="/super-admins/nuevo">+ Nuevo super admin</a>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr><th>Nombre</th><th>Email</th><th>Último acceso</th><th>Estado</th><th class="ta-right">Acciones</th></tr></thead>
+    <tbody>
+      {% for a in admins %}
+        <tr>
+          <td><strong>{{ a.name }}</strong>{{ a.id == selfId ? ' <span class="tag">vos</span>'|raw : '' }}</td>
+          <td class="mono">{{ a.email }}</td>
+          <td class="mono muted">{{ a.last_login_at ? a.last_login_at|date('d/m/Y H:i') : '—' }}</td>
+          <td><span class="badge {{ a.status == 'active' ? 'badge-ok' : 'badge-off' }}"><span class="dot"></span>{{ a.status }}</span></td>
+          <td class="ta-right actions">
+            {% if a.id != selfId %}
+              <form method="post" action="/super-admins/{{ a.id }}/estado" class="inline-form"
+                    data-confirm="¿{{ a.status == 'active' ? 'Deshabilitar' : 'Habilitar' }} a {{ a.name }}?">
+                {{ csrf_field() }}
+                <button class="btn btn-secondary btn-sm" type="submit">{{ a.status == 'active' ? 'Deshabilitar' : 'Habilitar' }}</button>
+              </form>
+            {% else %}
+              <span class="muted mono">—</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">No hay super admins.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
