@@ -39,6 +39,14 @@ final class Auth
         unset($_SESSION[self::USER], $_SESSION[self::CONTEXT]);
     }
 
+    /** Refresca el nombre del snapshot en sesión (tras editar el perfil propio). */
+    public function refreshName(string $name): void
+    {
+        if (isset($_SESSION[self::USER])) {
+            $_SESSION[self::USER]['name'] = $name;
+        }
+    }
+
     public function check(): bool
     {
         return isset($_SESSION[self::USER]);

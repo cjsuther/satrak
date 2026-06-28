@@ -1,0 +1,52 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Mi perfil{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Cuenta</span><h1>Mi perfil</h1></div>
+</div>
+
+<form method="post" action="/perfil" class="card form-card" novalidate>
+  {{ csrf_field() }}
+
+  <h2 class="panel-title" style="margin-top:0">Datos de la cuenta</h2>
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Nombre</span>
+      <input class="input" name="name" value="{{ user.name }}" required autofocus>
+      {% if errors.name is defined %}<small class="field-error">{{ errors.name }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Email (usuario de acceso)</span>
+      <input class="input mono" value="{{ user.email }}" disabled>
+    </label>
+    <label class="field">
+      <span class="field-label">Rol</span>
+      <input class="input mono" value="{{ user.role }}" disabled>
+    </label>
+  </div>
+
+  <h2 class="panel-title" style="margin-top:var(--space-5)">Cambiar contraseña</h2>
+  <p class="muted" style="font-size:var(--fs-mono);margin:.2rem 0 .8rem">Dejá los campos vacíos si no querés cambiarla.</p>
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Contraseña actual</span>
+      <input class="input" type="password" name="current_password" autocomplete="current-password">
+      {% if errors.current_password is defined %}<small class="field-error">{{ errors.current_password }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Nueva contraseña</span>
+      <input class="input" type="password" name="new_password" autocomplete="new-password">
+      {% if errors.new_password is defined %}<small class="field-error">{{ errors.new_password }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Repetir nueva</span>
+      <input class="input" type="password" name="confirm_password" autocomplete="new-password">
+    </label>
+  </div>
+
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">Guardar cambios</button>
+  </div>
+</form>
+{% endblock %}

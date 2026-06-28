@@ -43,6 +43,13 @@ final class UserRepository extends BaseRepository
         $stmt->execute([$hash, $id]);
     }
 
+    /** Actualiza sólo el nombre visible (perfil propio). */
+    public function updateName(int $id, string $name): void
+    {
+        $stmt = $this->db->prepare('UPDATE users SET name = ? WHERE id = ?');
+        $stmt->execute([$name, $id]);
+    }
+
     /**
      * Busca un usuario por id RESPETANDO el scope de empresa.
      * companyId NULL (super admin global) ⇒ por id; si no, exige misma empresa.

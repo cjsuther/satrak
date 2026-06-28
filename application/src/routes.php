@@ -25,6 +25,7 @@ use Satrak\Application\Controllers\DriverPortalController;
 use Satrak\Application\Controllers\GeofenceController;
 use Satrak\Application\Controllers\MapController;
 use Satrak\Application\Controllers\NotificationController;
+use Satrak\Application\Controllers\ProfileController;
 use Satrak\Application\Controllers\ReportController;
 use Satrak\Application\Controllers\UserController;
 use Satrak\Application\Controllers\VehicleController;
@@ -86,6 +87,10 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
     // Auditoría: global para super admin (sin contexto), por empresa para el resto.
     // Fuera del grupo de contexto para que el super admin la vea en vista global.
     $group->get('/auditoria', [AuditController::class, 'index'])->add($requires(Perm::AUDIT_COMPANY));
+
+    // Perfil de la cuenta propia (cualquier rol): nombre + cambio de contraseña.
+    $group->get('/perfil', [ProfileController::class, 'show'])->add($requires(Perm::PROFILE_EDIT));
+    $group->post('/perfil', [ProfileController::class, 'update'])->add($requires(Perm::PROFILE_EDIT));
 
     // Context switch del super admin.
     $group->post('/context/{id:[0-9]+}', [ContextController::class, 'enter'])->add($requires(Perm::CONTEXT_SWITCH));
