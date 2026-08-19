@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Satrak\Domain\Services;
 
 use Satrak\Domain\Repositories\AssignmentRepository;
+use Satrak\Domain\Repositories\DevicePersonAssignmentRepository;
 use Satrak\Domain\Repositories\DeviceEventRepository;
+use Satrak\Domain\Repositories\MissionRepository;
+use Satrak\Domain\Repositories\PersonPostRepository;
 use Satrak\Domain\Repositories\DeviceRepository;
 use Satrak\Domain\Repositories\PositionRepository;
 use Satrak\Domain\Repositories\ProcessorStateRepository;
@@ -39,6 +42,14 @@ final class TripBuilder
         private PinResolver $resolver,
         private int $tripStopSeconds,
         private ?AlertEngine $alerts = null,
+        // --- Sólo para dispositivos de persona (kind='person') ---------------
+        private ?DevicePersonAssignmentRepository $personAssignments = null,
+        private ?PersonPostRepository $posts = null,
+        private ?MissionRepository $missions = null,
+        private int $personStopSeconds = 600,
+        private int $walkSpeedKmh = 2,
+        private int $minStepMeters = 25,
+        private int $maxAccuracyMeters = 100,
     ) {
     }
 
@@ -53,6 +64,14 @@ final class TripBuilder
         $deviceId  = (int) $device['id'];
         $companyId = (int) $device['company_id'];
         $hasPin    = (bool) $device['has_pin'];
+        $isPerson  = ($device['kind'] ?? 'vehicle') === 'person';
+
+        // Una persona no se atribuye por PIN: el equipo es suyo. Y su recorrido
+        // se corta con un umbral más largo (estar parada trabajando no lo termina).
+        $personId = $isPerson && $this->personAssignments !== null
+            ? $this->personAssignments->activePersonId($deviceId, $companyId)
+            : null;
+        $stopSeconds = $isPerson ? $this->personStopSeconds : $this->tripStopSeconds;
 
         $st = $this->state->get($deviceId, $companyId);
 
@@ -72,6 +91,18 @@ final class TripBuilder
         $openTripId   = $st['open_trip_id'];
         $openTripDrv  = $st['current_driver_id'];      // invariante: el viaje abierto lleva este conductor
         $openTripFrom = null;                          // started_at del viaje abierto (se carga si hace falta)
+
+        // Contexto de persona: puesto vigente y misión que la autoriza a moverse.
+        $post = null;
+        $missionId = null;
+        if ($isPerson && $personId !== null) {
+            $post = $this->posts?->currentForPerson($personId, $companyId);
+            $mission = $this->missions?->activeForPerson($personId, $companyId);
+            $missionId = $mission !== null ? (int) $mission['id'] : null;
+        }
+        // Última posición considerada "en movimiento" (filtro de ruido GPS a pie).
+        $lastMoveLat = null;
+        $lastMoveLon = null;
 
         // Posición previa (para detectar huecos y fijar el fin del viaje al punto anterior).
         $lastPosId  = $st['last_position_id'];
@@ -127,9 +158,15 @@ final class TripBuilder
                 }
                 // ignition_on / power_cut / low_battery: sin efecto en viajes.
                 // SOS dispara alerta crítica (motor de alertas, §12).
-                if ($type === 'sos') {
+                if (in_array($type, ['sos', 'panic', 'low_battery'], true)) {
                     $this->alerts?->onEvent(
-                        ['company_id' => $companyId, 'device_id' => $deviceId, 'vehicle_id' => $vehicleId, 'driver_id' => $driverNow],
+                        [
+                            'company_id' => $companyId,
+                            'device_id'  => $deviceId,
+                            'vehicle_id' => $vehicleId,
+                            'driver_id'  => $driverNow,
+                            'person_id'  => $personId,
+                        ],
                         $ev
                     );
                 }
@@ -157,7 +194,7 @@ final class TripBuilder
             // 1) Hueco temporal: si pasó más que el umbral de parada, el viaje
             //    abierto terminó en el punto anterior.
             if ($openTripId !== null && $lastPosTs !== null
-                && $this->secondsBetween($lastPosTs, $ts) >= $this->tripStopSeconds) {
+                && $this->secondsBetween($lastPosTs, $ts) >= $stopSeconds) {
                 $this->closeTrip($deviceId, $openTripId, (string) $openTripFrom, $lastPosTs);
                 $stats['trips_closed']++;
                 $openTripId = null;
@@ -173,22 +210,49 @@ final class TripBuilder
             }
 
             // 3) Apertura: primera posición en movimiento sin viaje en curso.
-            if ($this->isMoving($pos) && $openTripId === null) {
+            $moving = $isPerson
+                ? $this->personIsMoving($pos, $lastMoveLat, $lastMoveLon)
+                : $this->isMoving($pos);
+
+            if ($moving && $openTripId === null) {
                 $openTripId = $this->trips->open($companyId, $deviceId, $vehicleId, $driverId, $ts, $lat, $lon);
                 $openTripFrom = $ts;
                 $openTripDrv = $driverId;
                 $stats['trips_opened']++;
+                if ($isPerson && $personId !== null) {
+                    $this->trips->setPerson($openTripId, $personId, $missionId);
+                }
+            }
+            if ($moving) {
+                $lastMoveLat = $lat;
+                $lastMoveLon = $lon;
             }
 
             $this->positions->setDriver($posId, $driverId);
             $driverNow = $driverId;
 
-            // Motor de alertas: evalúa speed / geocercas / idle sobre esta posición.
-            $this->alerts?->onPosition(
-                ['company_id' => $companyId, 'device_id' => $deviceId, 'vehicle_id' => $vehicleId, 'driver_id' => $driverId],
-                $pos,
-                $alertState
-            );
+            // Motor de alertas.
+            if ($isPerson) {
+                if ($personId !== null) {
+                    $this->alerts?->onPersonPosition(
+                        [
+                            'company_id'  => $companyId,
+                            'device_id'   => $deviceId,
+                            'person_id'   => $personId,
+                            'post'        => $post,
+                            'has_mission' => $missionId !== null,
+                        ],
+                        $pos,
+                        $alertState
+                    );
+                }
+            } else {
+                $this->alerts?->onPosition(
+                    ['company_id' => $companyId, 'device_id' => $deviceId, 'vehicle_id' => $vehicleId, 'driver_id' => $driverId],
+                    $pos,
+                    $alertState
+                );
+            }
 
             $lastPosId = $posId;
             $lastPosTs = $ts;
@@ -199,7 +263,7 @@ final class TripBuilder
         // umbral respecto del "ahora" (datos históricos). En modo vivo, las
         // posiciones recientes lo dejan abierto.
         if ($openTripId !== null && $lastPosTs !== null
-            && $this->secondsBetween($lastPosTs, $this->nowString()) >= $this->tripStopSeconds) {
+            && $this->secondsBetween($lastPosTs, $this->nowString()) >= $stopSeconds) {
             $this->closeTrip($deviceId, $openTripId, (string) $openTripFrom, $lastPosTs);
             $stats['trips_closed']++;
             $openTripId = null;
@@ -213,6 +277,36 @@ final class TripBuilder
         $this->state->save($deviceId, $companyId, $currentPin, $driverNow, $lastPosId, $openTripId, $alertState);
 
         return $stats;
+    }
+
+    /**
+     * ¿La persona se está moviendo?
+     *
+     * A pie no hay ignición y `speed > 0` sobra: el ruido de GPS abriría
+     * recorridos falsos con la persona quieta. Se exige velocidad de caminata Y
+     * un desplazamiento real respecto del último punto en movimiento, y se
+     * descartan los puntos de mala precisión.
+     *
+     * @param array<string,mixed> $pos
+     */
+    private function personIsMoving(array $pos, ?float $refLat, ?float $refLon): bool
+    {
+        $accuracy = $pos['accuracy_m'] ?? null;
+        if ($accuracy !== null && (int) $accuracy > $this->maxAccuracyMeters) {
+            return false;
+        }
+
+        if ((int) ($pos['speed'] ?? 0) < $this->walkSpeedKmh) {
+            return false;
+        }
+
+        if ($refLat === null || $refLon === null) {
+            return true;   // primer punto con velocidad: arranca el recorrido
+        }
+
+        $meters = Geo::haversineKm($refLat, $refLon, (float) $pos['lat'], (float) $pos['lon']) * 1000;
+
+        return $meters >= $this->minStepMeters;
     }
 
     /** ¿La posición está en movimiento? Prioriza ignición; cae a velocidad. */

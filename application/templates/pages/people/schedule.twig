@@ -1,0 +1,162 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Jornada de {{ p.first_name }} {{ p.last_name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow"><a href="/personas">Personas</a> / jornada</span>
+    <h1>{{ p.first_name }} {{ p.last_name }}</h1>
+    <p class="muted">Fuera de estos horarios <strong>no se rastrea</strong>: la app no captura y el servidor descarta.</p>
+  </div>
+  <a class="btn btn-secondary" href="/personas/{{ p.id }}/editar">Editar datos</a>
+</div>
+
+{# --- Jornada semanal ------------------------------------------------------ #}
+<div class="card form-card">
+  <span class="eyebrow">Jornada semanal</span>
+  <p class="muted">Dejá un día vacío para que no se rastree. Si la hora de fin es menor o igual a la de inicio, la ventana cruza la medianoche.</p>
+
+  <form method="post" action="/personas/{{ p.id }}/jornada">
+    {{ csrf_field() }}
+    <table class="data-table compact">
+      <thead><tr><th>Día</th><th>Desde</th><th>Hasta</th></tr></thead>
+      <tbody>
+        {% for num, name in weekdays %}
+          <tr>
+            <td>{{ name }}</td>
+            <td><input class="input mono" type="time" name="from[{{ num }}]" value="{{ shifts[num].from|default('') }}"></td>
+            <td><input class="input mono" type="time" name="to[{{ num }}]" value="{{ shifts[num].to|default('') }}"></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">Guardar jornada</button>
+    </div>
+  </form>
+</div>
+
+{# --- Excepciones ---------------------------------------------------------- #}
+<div class="card form-card">
+  <span class="eyebrow">Excepciones</span>
+  <p class="muted">Un franco anula el día completo. Un turno extra agrega una ventana puntual y gana sobre el franco.</p>
+
+  <table class="data-table compact">
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Horario</th><th>Nota</th><th class="ta-right"></th></tr></thead>
+    <tbody>
+      {% for e in exceptions %}
+        <tr>
+          <td class="mono">{{ e.date }}</td>
+          <td>{{ e.kind == 'off' ? 'Franco' : 'Turno extra' }}</td>
+          <td class="mono">{{ e.start_time ? e.start_time|slice(0,5) ~ '–' ~ e.end_time|slice(0,5) : '—' }}</td>
+          <td>{{ e.note ?? '—' }}</td>
+          <td class="ta-right">
+            <form method="post" action="/personas/{{ p.id }}/jornada/excepciones/{{ e.id }}/eliminar" class="inline-form">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">Quitar</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">Sin excepciones próximas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" action="/personas/{{ p.id }}/jornada/excepciones" class="form-section">
+    {{ csrf_field() }}
+    <div class="form-grid">
+      <label class="field">
+        <span class="field-label">Fecha</span>
+        <input class="input mono" type="date" name="date" required>
+      </label>
+      <label class="field">
+        <span class="field-label">Tipo</span>
+        <select class="input" name="kind">
+          <option value="off">Franco / licencia</option>
+          <option value="extra">Turno extra</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Desde (sólo turno extra)</span>
+        <input class="input mono" type="time" name="start_time">
+      </label>
+      <label class="field">
+        <span class="field-label">Hasta (sólo turno extra)</span>
+        <input class="input mono" type="time" name="end_time">
+      </label>
+      <label class="field">
+        <span class="field-label">Nota</span>
+        <input class="input" name="note" maxlength="120">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" type="submit">Agregar excepción</button>
+    </div>
+  </form>
+</div>
+
+{# --- Puesto --------------------------------------------------------------- #}
+<div class="card form-card">
+  <span class="eyebrow">Puesto</span>
+  <p class="muted">
+    Dónde debe estar durante la jornada. Si sale del puesto sin una misión vigente,
+    se dispara la alerta «fuera de puesto» pasada la tolerancia.
+  </p>
+
+  <form method="post" action="/personas/{{ p.id }}/jornada/puesto">
+    {{ csrf_field() }}
+    <div class="form-grid">
+      <label class="field">
+        <span class="field-label">Geocerca</span>
+        <select class="input" name="geofence_id">
+          <option value="0">— Sin puesto asignado —</option>
+          {% for g in geofences %}
+            <option value="{{ g.id }}" {{ post and post.geofence_id == g.id ? 'selected' }}>{{ g.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Tolerancia fuera del puesto (minutos)</span>
+        <input class="input mono" type="number" name="grace_min" min="0" max="240"
+               value="{{ post.grace_min|default(10) }}">
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">Guardar puesto</button>
+    </div>
+  </form>
+</div>
+
+{# --- Sesión de la app ----------------------------------------------------- #}
+<div class="card form-card">
+  <span class="eyebrow">App móvil</span>
+  {% if session %}
+    <table class="data-table compact">
+      <tbody>
+        <tr><th>Equipo</th><td>{{ session.model ?? '—' }} · {{ session.platform }} {{ session.os_version ?? '' }}</td></tr>
+        <tr><th>Versión de la app</th><td class="mono">{{ session.app_version ?? '—' }}</td></tr>
+        <tr><th>Última señal</th><td class="mono">{{ session.last_seen_at ?? 'nunca' }}</td></tr>
+        <tr><th>Batería</th><td class="mono">{{ session.battery_pct is not null ? session.battery_pct ~ '%' : '—' }}</td></tr>
+        <tr><th>Permisos de ubicación</th>
+            <td>
+              {% if session.perms_ok is null %}<span class="muted">sin datos</span>
+              {% elseif session.perms_ok %}<span class="badge badge-ok"><span class="dot"></span> ok</span>
+              {% else %}<span class="badge badge-off"><span class="dot"></span> faltan</span>{% endif %}
+            </td></tr>
+      </tbody>
+    </table>
+    <form method="post" action="/personas/{{ p.id }}/jornada/sesion/revocar" class="form-actions"
+          data-confirm="¿Cerrar la sesión de la app de {{ p.first_name }}?">
+      {{ csrf_field() }}
+      <button class="btn btn-secondary" type="submit">Cerrar sesión de la app</button>
+    </form>
+  {% else %}
+    <p class="muted">
+      Sin sesión activa.
+      {% if not p.password_hash %}Todavía no tiene contraseña de app: cargala desde
+      <a href="/personas/{{ p.id }}/editar">sus datos</a>.{% endif %}
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

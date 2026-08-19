@@ -15,7 +15,11 @@
         <tr>
           <td><strong>{{ g.name }}</strong></td>
           <td>{{ g.shape == 'circle' ? 'Círculo' : 'Polígono' }}</td>
-          <td class="muted">{{ g.vehicle_count > 0 ? g.vehicle_count ~ ' vehículo(s)' : 'Todos los vehículos' }}</td>
+          <td class="muted">
+            {{ g.vehicle_count > 0 ? g.vehicle_count ~ ' vehículo(s)' : 'todos los vehículos' }}
+            ·
+            {{ g.person_count > 0 ? g.person_count ~ ' persona(s)' : 'todas las personas' }}
+          </td>
           <td>
             <span class="badge {{ g.active ? 'badge-ok' : 'badge-off' }}"><span class="dot"></span>{{ g.active ? 'activa' : 'inactiva' }}</span>
           </td>

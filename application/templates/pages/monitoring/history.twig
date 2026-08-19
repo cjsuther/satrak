@@ -18,11 +18,26 @@
     <span>Dispositivo / vehículo</span>
     <select name="device_id" class="input" required>
       <option value="">Elegí una unidad…</option>
-      {% for d in devices %}
-        <option value="{{ d.id }}" {{ d.id == device_id ? 'selected' : '' }}>
-          {{ d.plate ? d.plate : (d.label ?? d.imei) }}{{ d.plate and d.label ? ' · ' ~ d.label : '' }}
-        </option>
-      {% endfor %}
+      {% set vehicles = devices|filter(d => d.kind != 'person') %}
+      {% set persons  = devices|filter(d => d.kind == 'person') %}
+      {% if vehicles is not empty %}
+        <optgroup label="Vehículos">
+          {% for d in vehicles %}
+            <option value="{{ d.id }}" {{ d.id == device_id ? 'selected' : '' }}>
+              {{ d.plate ? d.plate : (d.label ?? d.imei) }}{{ d.plate and d.label ? ' · ' ~ d.label : '' }}
+            </option>
+          {% endfor %}
+        </optgroup>
+      {% endif %}
+      {% if persons is not empty %}
+        <optgroup label="Personas">
+          {% for d in persons %}
+            <option value="{{ d.id }}" {{ d.id == device_id ? 'selected' : '' }}>
+              {{ d.person_name|trim(', ') ?: (d.label ?? d.imei) }}
+            </option>
+          {% endfor %}
+        </optgroup>
+      {% endif %}
     </select>
   </label>
   <label class="field">

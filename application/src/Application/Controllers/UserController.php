@@ -12,13 +12,15 @@ use Satrak\Application\Support\Listing;
 use Satrak\Application\Support\Validator;
 use Satrak\Domain\Repositories\AuditRepository;
 use Satrak\Domain\Repositories\DriverRepository;
+use Satrak\Domain\Repositories\PersonRepository;
 use Satrak\Domain\Repositories\UserRepository;
 use Slim\Exception\HttpNotFoundException;
 use Slim\Views\Twig;
 
 /**
  * ABM de usuarios de la empresa (operador / conductor). Scopeado por company_id
- * y auditado. El conductor puede tener un usuario para el portal (driver_id).
+ * y auditado. El conductor puede tener un usuario para su portal (`driver_id`) y
+ * la persona, para el suyo (`person_id`).
  */
 final class UserController
 {
@@ -28,7 +30,8 @@ final class UserController
         private Flash $flash,
         private AuditRepository $audit,
         private UserRepository $users,
-        private DriverRepository $drivers
+        private DriverRepository $drivers,
+        private PersonRepository $people
     ) {
     }
 
@@ -52,8 +55,8 @@ final class UserController
     private function assignableRoles(): array
     {
         return $this->auth->isSuperAdmin()
-            ? ['company_admin', 'operator', 'driver']
-            : ['operator', 'driver'];
+            ? ['company_admin', 'operator', 'driver', 'person']
+            : ['operator', 'driver', 'person'];
     }
 
     public function index(Request $request, Response $response): Response
@@ -81,12 +84,23 @@ final class UserController
     public function createForm(Request $request, Response $response): Response
     {
         $companyId = (int) $request->getAttribute('company_id');
-        $preDriver = (int) ($request->getQueryParams()['driver_id'] ?? 0);
+        $q = $request->getQueryParams();
+        $preDriver = (int) ($q['driver_id'] ?? 0);
+        $prePerson = (int) ($q['person_id'] ?? 0);
+
+        $role = 'operator';
+        if ($preDriver) {
+            $role = 'driver';
+        } elseif ($prePerson) {
+            $role = 'person';
+        }
 
         return $this->twig->render($response, 'pages/users/form.twig', [
             'mode'    => 'create',
-            'u'       => ['role' => $preDriver ? 'driver' : 'operator', 'status' => 'active', 'driver_id' => $preDriver ?: null],
+            'u'       => ['role' => $role, 'status' => 'active',
+                          'driver_id' => $preDriver ?: null, 'person_id' => $prePerson ?: null],
             'drivers' => $this->drivers->activeForCompany($companyId),
+            'people'  => $this->people->activeForCompany($companyId),
             'roles'   => $this->assignableRoles(),
         ]);
     }
@@ -105,6 +119,7 @@ final class UserController
         $id = $this->users->create([
             'company_id'    => $companyId,
             'driver_id'     => $role === 'driver' ? (int) $d['driver_id'] : null,
+            'person_id'     => $role === 'person' ? (int) $d['person_id'] : null,
             'name'          => trim((string) $d['name']),
             'email'         => (string) $d['email'],
             'password_hash' => password_hash((string) $d['password'], $this->hashAlgo()),
@@ -151,6 +166,7 @@ final class UserController
             'role'      => $role,
             'status'    => ($d['status'] ?? 'active') === 'disabled' ? 'disabled' : 'active',
             'driver_id' => $role === 'driver' ? (int) $d['driver_id'] : null,
+            'person_id' => $role === 'person' ? (int) $d['person_id'] : null,
         ]);
 
         if (trim((string) ($d['password'] ?? '')) !== '') {
@@ -181,6 +197,7 @@ final class UserController
         $this->users->update((int) $user['id'], [
             'name' => $user['name'], 'email' => $user['email'], 'role' => $user['role'],
             'status' => $new, 'driver_id' => $user['driver_id'],
+            'person_id' => $user['person_id'] ?? null,
         ]);
 
         $this->audit->log($companyId, $this->auth->id(), 'user.status', 'user', (int) $user['id'],
@@ -217,6 +234,14 @@ final class UserController
         if ($role === 'driver' && (int) ($d['driver_id'] ?? 0) <= 0) {
             $errors['driver_id'] = 'Elegí el conductor asociado a este usuario.';
         }
+        if ($role === 'person') {
+            $personId = (int) ($d['person_id'] ?? 0);
+            if ($personId <= 0) {
+                $errors['person_id'] = 'Elegí la persona asociada a este usuario.';
+            } elseif ($this->people->findScoped($personId, $companyId) === null) {
+                $errors['person_id'] = 'Esa persona no es de la empresa.';
+            }
+        }
         if (!isset($errors['email']) && $this->users->emailTaken((string) $d['email'], $exceptId)) {
             $errors['email'] = 'Ese email ya está en uso.';
         }
@@ -238,6 +263,7 @@ final class UserController
             'mode'    => $mode,
             'u'       => $u,
             'drivers' => $this->drivers->activeForCompany($companyId),
+            'people'  => $this->people->activeForCompany($companyId),
             'roles'   => $this->assignableRoles(),
             'errors'  => $errors,
         ]);

@@ -3,8 +3,11 @@
 
 {% block content %}
 <div class="page-head">
-  <div><span class="eyebrow">Gestión</span><h1>Conductores</h1></div>
-  <a class="btn btn-primary" href="/conductores/nuevo">+ Nuevo conductor</a>
+  <div>
+    <span class="eyebrow">Gestión</span><h1>Conductores</h1>
+    <p class="muted">Perfil de conducción de una persona. Se edita desde la persona.</p>
+  </div>
+  <a class="btn btn-primary" href="/personas/nueva">+ Nueva persona</a>
 </div>
 
 {% include 'partials/pagination.twig' with {base: '/conductores'} %}
@@ -27,7 +30,8 @@
             </span>
           </td>
           <td class="ta-right actions">
-            <a class="btn btn-secondary btn-sm" href="/conductores/{{ d.id }}/editar">Editar</a>
+            <a class="btn btn-secondary btn-sm"
+               href="{{ d.person_id ? '/personas/' ~ d.person_id ~ '/editar' : '/conductores/' ~ d.id ~ '/editar' }}">Editar</a>
             <a class="btn btn-secondary btn-sm" href="/usuarios/nuevo?driver_id={{ d.id }}" title="Crear usuario de portal">+ Portal</a>
             <form method="post" action="/conductores/{{ d.id }}/estado" class="inline-form"
                   data-confirm="¿{{ d.status == 'active' ? 'Desactivar' : 'Activar' }} a {{ d.first_name }}?">

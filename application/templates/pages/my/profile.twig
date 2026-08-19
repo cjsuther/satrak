@@ -1,0 +1,71 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Mi perfil{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Mi portal</span><h1>Mi perfil</h1></div>
+</div>
+
+<form method="post" action="/mi/perfil" class="card form-card" novalidate>
+  {{ csrf_field() }}
+
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Nombre</span>
+      <input class="input" value="{{ person.first_name }} {{ person.last_name }}" disabled>
+    </label>
+    <label class="field">
+      <span class="field-label">DNI</span>
+      <input class="input mono" value="{{ person.dni ?? '—' }}" disabled>
+    </label>
+    <label class="field">
+      <span class="field-label">Teléfono</span>
+      <input class="input mono" name="phone" value="{{ person.phone|default('') }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Email</span>
+      <input class="input" type="email" name="email" value="{{ person.email|default('') }}">
+      {% if errors.email is defined %}<small class="field-error">{{ errors.email }}</small>{% endif %}
+    </label>
+  </div>
+
+  <div class="form-section">
+    <span class="eyebrow">Cambiar contraseña del panel</span>
+    <p class="muted">
+      Dejá los campos vacíos para no cambiarla. La contraseña de la app es distinta
+      y la administra tu empresa.
+    </p>
+    <div class="form-grid">
+      <label class="field">
+        <span class="field-label">Contraseña actual</span>
+        <input class="input" type="password" name="current_password" autocomplete="current-password">
+        {% if errors.current_password is defined %}<small class="field-error">{{ errors.current_password }}</small>{% endif %}
+      </label>
+      <label class="field">
+        <span class="field-label">Nueva contraseña</span>
+        <input class="input" type="password" name="new_password" autocomplete="new-password">
+        {% if errors.new_password is defined %}<small class="field-error">{{ errors.new_password }}</small>{% endif %}
+      </label>
+      <label class="field">
+        <span class="field-label">Repetir nueva contraseña</span>
+        <input class="input" type="password" name="confirm_password" autocomplete="new-password">
+        {% if errors.confirm_password is defined %}<small class="field-error">{{ errors.confirm_password }}</small>{% endif %}
+      </label>
+    </div>
+  </div>
+
+  {% if person.consent_at %}
+    <div class="form-section">
+      <span class="eyebrow">Consentimiento</span>
+      <p class="muted">
+        Tu empresa registró tu consentimiento para el seguimiento el {{ person.consent_at }}.
+        Sólo se registra tu ubicación dentro de la jornada configurada.
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">Guardar cambios</button>
+  </div>
+</form>
+{% endblock %}

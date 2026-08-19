@@ -17,8 +17,11 @@ final class MonitoringRepository
     }
 
     /**
-     * Última posición por dispositivo activo de la empresa, con vehículo y
-     * conductor vigente (de `processor_state`). Base del mapa en vivo (§10).
+     * Última posición por dispositivo activo de la empresa. Base del **mapa
+     * unificado**: trae tanto equipos de flota (con vehículo y conductor vigente
+     * de `processor_state`) como equipos de persona (con la persona asignada).
+     *
+     * `kind` distingue unos de otros; el controlador arma la etiqueta y el estado.
      *
      * @return array<int,array<string,mixed>>
      */
@@ -30,6 +33,7 @@ final class MonitoringRepository
                 d.imei,
                 d.label,
                 d.has_pin,
+                d.kind,
                 d.last_seen_at,
                 p.id           AS position_id,
                 p.ts,
@@ -38,20 +42,27 @@ final class MonitoringRepository
                 p.speed,
                 p.heading,
                 p.ignition,
+                p.battery_pct,
                 v.id           AS vehicle_id,
                 v.plate,
                 ps.current_driver_id,
                 dr.first_name,
-                dr.last_name
+                dr.last_name,
+                pe.id          AS person_id,
+                pe.first_name  AS person_first_name,
+                pe.last_name   AS person_last_name
              FROM devices d
              LEFT JOIN positions p ON p.id = d.last_position_id
              LEFT JOIN device_vehicle_assignments a
                     ON a.device_id = d.id AND a.unassigned_at IS NULL
              LEFT JOIN vehicles v ON v.id = a.vehicle_id
+             LEFT JOIN device_person_assignments dpa
+                    ON dpa.device_id = d.id AND dpa.unassigned_at IS NULL
+             LEFT JOIN people pe ON pe.id = dpa.person_id
              LEFT JOIN processor_state ps ON ps.device_id = d.id
              LEFT JOIN drivers dr ON dr.id = ps.current_driver_id
              WHERE d.company_id = :cid AND d.status = "active"
-             ORDER BY COALESCE(v.plate, d.imei)'
+             ORDER BY COALESCE(v.plate, CONCAT(pe.last_name, ", ", pe.first_name), d.imei)'
         );
         $stmt->execute([':cid' => $companyId]);
 
@@ -99,21 +110,25 @@ final class MonitoringRepository
     }
 
     /**
-     * Dispositivos activos de la empresa con su vehículo (para el selector del
-     * historial).
+     * Dispositivos activos de la empresa con su vehículo o su persona (selector
+     * del historial). El `kind` permite agrupar el select por tipo de unidad.
      *
      * @return array<int,array<string,mixed>>
      */
     public function devicesForSelect(int $companyId): array
     {
         $stmt = $this->db->prepare(
-            'SELECT d.id, d.imei, d.label, v.plate
+            'SELECT d.id, d.imei, d.label, d.kind, v.plate,
+                    TRIM(CONCAT(COALESCE(pe.last_name, ""), ", ", COALESCE(pe.first_name, ""))) AS person_name
              FROM devices d
              LEFT JOIN device_vehicle_assignments a
                     ON a.device_id = d.id AND a.unassigned_at IS NULL
              LEFT JOIN vehicles v ON v.id = a.vehicle_id
+             LEFT JOIN device_person_assignments dpa
+                    ON dpa.device_id = d.id AND dpa.unassigned_at IS NULL
+             LEFT JOIN people pe ON pe.id = dpa.person_id
              WHERE d.company_id = :cid AND d.status = "active"
-             ORDER BY COALESCE(v.plate, d.imei)'
+             ORDER BY d.kind, COALESCE(v.plate, pe.last_name, d.imei)'
         );
         $stmt->execute([':cid' => $companyId]);
 

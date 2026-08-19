@@ -8,6 +8,11 @@ use Satrak\Application\Support\Listing;
 
 /**
  * Acceso a la tabla `drivers`. PIN único por empresa (validado en app, 4–10).
+ *
+ * Desde el módulo de Personas, un conductor es el **perfil de conducción** de una
+ * `person` (`drivers.person_id`): los datos personales son de `people` y acá se
+ * replican para no romper las consultas históricas. El alta/baja del perfil se
+ * hace desde el formulario de la persona, no desde este ABM.
  */
 final class DriverRepository extends BaseRepository
 {
@@ -19,6 +24,71 @@ final class DriverRepository extends BaseRepository
         $row = $stmt->fetch();
 
         return $row ?: null;
+    }
+
+    /**
+     * Perfil de conducción de una persona, si lo tiene.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findByPersonId(int $personId, int $companyId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM drivers WHERE person_id = ? AND company_id = ? LIMIT 1');
+        $stmt->execute([$personId, $companyId]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
+    /**
+     * Crea el perfil de conducción de una persona, copiando de `people` los datos
+     * personales que `drivers` todavía necesita.
+     *
+     * @param array<string,mixed> $person  fila de `people`
+     * @param array{license_number:string,pin:string,status:string} $profile
+     */
+    public function createForPerson(int $companyId, int $personId, array $person, array $profile): int
+    {
+        $stmt = $this->db->prepare(
+            'INSERT INTO drivers (company_id, person_id, first_name, last_name, dni, license_number,
+                                  phone, email, pin, status)
+             VALUES (:company_id, :person_id, :first_name, :last_name, :dni, :license_number,
+                     :phone, :email, :pin, :status)'
+        );
+        $stmt->execute([
+            ':company_id'     => $companyId,
+            ':person_id'      => $personId,
+            ':first_name'     => $person['first_name'],
+            ':last_name'      => $person['last_name'],
+            ':dni'            => $person['dni'] ?: null,
+            ':license_number' => $profile['license_number'] ?: null,
+            ':phone'          => $person['phone'] ?: null,
+            ':email'          => $person['email'] ?: null,
+            ':pin'            => $profile['pin'] ?: null,
+            ':status'         => $profile['status'] ?? 'active',
+        ]);
+
+        return (int) $this->db->lastInsertId();
+    }
+
+    /**
+     * Sincroniza el perfil: datos personales desde `people` + licencia/PIN/estado.
+     *
+     * @param array<string,mixed> $person  fila de `people`
+     * @param array{license_number:string,pin:string,status:string} $profile
+     */
+    public function syncFromPerson(int $driverId, array $person, array $profile): void
+    {
+        $this->update($driverId, [
+            'first_name'     => $person['first_name'],
+            'last_name'      => $person['last_name'],
+            'dni'            => $person['dni'] ?? '',
+            'license_number' => $profile['license_number'],
+            'phone'          => $person['phone'] ?? '',
+            'email'          => $person['email'] ?? '',
+            'pin'            => $profile['pin'],
+            'status'         => $profile['status'],
+        ]);
     }
 
     /** ¿El PIN ya está usado por otro conductor de la empresa? */
@@ -76,11 +146,16 @@ final class DriverRepository extends BaseRepository
     /**
      * Busca un conductor por PIN dentro de la empresa (atribución §8).
      *
+     * Sólo conductores **activos**: un conductor dado de baja (o cuya persona se
+     * desactivó) no debe seguir atribuyéndose viajes aunque conserve el PIN.
+     *
      * @return array<string,mixed>|null
      */
     public function findByPin(int $companyId, string $pin): ?array
     {
-        $stmt = $this->db->prepare('SELECT * FROM drivers WHERE company_id = ? AND pin = ? LIMIT 1');
+        $stmt = $this->db->prepare(
+            "SELECT * FROM drivers WHERE company_id = ? AND pin = ? AND status = 'active' LIMIT 1"
+        );
         $stmt->execute([$companyId, $pin]);
         $row = $stmt->fetch();
 
@@ -115,7 +190,7 @@ final class DriverRepository extends BaseRepository
     {
         return $this->paginate(
             'drivers',
-            ['id', 'first_name', 'last_name', 'dni', 'phone', 'pin', 'status'],
+            ['id', 'person_id', 'first_name', 'last_name', 'dni', 'phone', 'pin', 'status'],
             ['company_id = :cid'],
             [':cid' => $companyId],
             ['first_name', 'last_name', 'dni', 'pin'],

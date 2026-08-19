@@ -101,6 +101,9 @@ final class CompanyController
                 'slug'         => $slug,
                 'status'       => ($d['status'] ?? 'active') === 'suspended' ? 'suspended' : 'active',
                 'device_quota' => (int) ($d['device_quota'] ?? 0),
+                'person_quota' => (int) ($d['person_quota'] ?? 0),
+                'modules'      => (array) ($d['modules'] ?? []),
+                'emergency_email' => trim((string) ($d['emergency_email'] ?? '')),
                 'timezone'     => trim((string) ($d['timezone'] ?? 'America/Argentina/Buenos_Aires')),
             ]);
 
@@ -166,6 +169,9 @@ final class CompanyController
             'slug'         => $this->companies->uniqueSlug($name, $id),
             'status'       => ($d['status'] ?? 'active') === 'suspended' ? 'suspended' : 'active',
             'device_quota' => (int) ($d['device_quota'] ?? 0),
+            'person_quota' => (int) ($d['person_quota'] ?? 0),
+            'modules'      => (array) ($d['modules'] ?? []),
+            'emergency_email' => trim((string) ($d['emergency_email'] ?? '')),
             'timezone'     => trim((string) ($d['timezone'] ?? $company['timezone'])),
         ]);
 
@@ -184,9 +190,15 @@ final class CompanyController
         }
 
         $new = $company['status'] === 'active' ? 'suspended' : 'active';
+        // Se re-envían cupos y módulos tal como están: `update()` reescribe la
+        // fila entera y omitirlos los volvería a los valores por defecto.
         $this->companies->update($id, [
             'name' => $company['name'], 'slug' => $company['slug'], 'status' => $new,
-            'device_quota' => (int) $company['device_quota'], 'timezone' => $company['timezone'],
+            'device_quota' => (int) $company['device_quota'],
+            'person_quota' => (int) $company['person_quota'],
+            'modules'      => (string) $company['modules'],
+            'emergency_email' => (string) ($company['emergency_email'] ?? ''),
+            'timezone'     => $company['timezone'],
         ]);
 
         $this->audit->log($id, $this->auth->id(), 'company.status', 'company', $id,

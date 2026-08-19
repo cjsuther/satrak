@@ -1,0 +1,87 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Mi día{% endblock %}
+
+{% set missionLabels = {
+  'pending': 'Pendiente', 'in_progress': 'En curso', 'completed': 'Cumplida',
+  'missed': 'No cumplida', 'cancelled': 'Cancelada'
+} %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Mi portal</span>
+    <h1>Hola, {{ person.first_name }}</h1>
+  </div>
+  <div class="map-sync readout">
+    {% if on_shift %}
+      <span class="live-dot" aria-hidden="true"></span><span>en jornada · se registra tu ubicación</span>
+    {% else %}
+      <span><strong>fuera de jornada</strong> · no se registra tu ubicación</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card form-card">
+  <span class="eyebrow">Mi jornada</span>
+  {% if shifts is empty %}
+    <p class="muted">No tenés horarios cargados: fuera de una jornada configurada no se registra tu ubicación.</p>
+  {% else %}
+    <table class="data-table compact">
+      <thead><tr><th>Día</th><th>Desde</th><th>Hasta</th></tr></thead>
+      <tbody>
+        {% for s in shifts %}
+          <tr>
+            <td>{{ weekdays[s.weekday] }}</td>
+            <td class="mono">{{ s.start_time|slice(0,5) }}</td>
+            <td class="mono">{{ s.end_time|slice(0,5) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</div>
+
+<div class="card form-card">
+  <span class="eyebrow">Mi puesto</span>
+  {% if post %}
+    <p><strong>{{ post.geofence_name }}</strong> · tolerancia {{ post.grace_min }} min fuera del puesto.</p>
+  {% else %}
+    <p class="muted">No tenés un puesto asignado.</p>
+  {% endif %}
+</div>
+
+<div class="card form-card">
+  <span class="eyebrow">Mis misiones de hoy</span>
+  {% if missions is empty %}
+    <p class="muted">No tenés misiones asignadas para hoy.</p>
+  {% else %}
+    <table class="data-table compact">
+      <thead><tr><th>Destino</th><th>Ventana</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for m in missions %}
+          <tr>
+            <td><strong>{{ m.dest_name }}</strong>{% if m.notes %}<br><small class="muted">{{ m.notes }}</small>{% endif %}</td>
+            <td class="mono">{{ m.scheduled_start|slice(11,5) }} – {{ m.scheduled_end|slice(11,5) }}</td>
+            <td>
+              <span class="badge {{ m.status == 'completed' ? 'badge-ok' : (m.status == 'missed' ? 'badge-crit' : 'badge-off') }}">
+                <span class="dot"></span>{{ missionLabels[m.status] ?? m.status }}
+              </span>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted">Las misiones se inician y se cierran desde la app.</p>
+  {% endif %}
+</div>
+
+<div class="card form-card">
+  <span class="eyebrow">Mi última ubicación</span>
+  {% if lastPos %}
+    <p class="mono">{{ lastPos.ts }} · {{ lastPos.lat }}, {{ lastPos.lon }}</p>
+    <a class="btn btn-secondary" href="/mi/ubicacion">Ver en el mapa</a>
+  {% else %}
+    <p class="muted">Todavía no hay ubicaciones registradas.</p>
+  {% endif %}
+</div>
+{% endblock %}

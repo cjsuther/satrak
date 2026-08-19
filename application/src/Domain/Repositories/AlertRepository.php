@@ -17,14 +17,14 @@ final class AlertRepository
     }
 
     /**
-     * @param array{rule_id:?int,device_id:?int,vehicle_id:?int,driver_id:?int,type:string,severity:string,message:string,lat:?float,lon:?float,ts:string} $a
+     * @param array{rule_id:?int,device_id:?int,vehicle_id:?int,driver_id:?int,person_id?:?int,type:string,severity:string,message:string,lat:?float,lon:?float,ts:string} $a
      */
     public function create(int $companyId, array $a): int
     {
         $stmt = $this->db->prepare(
             'INSERT INTO alerts
-                (company_id, rule_id, device_id, vehicle_id, driver_id, type, severity, message, lat, lon, ts)
-             VALUES (:company_id, :rule_id, :device_id, :vehicle_id, :driver_id, :type, :severity, :message, :lat, :lon, :ts)'
+                (company_id, rule_id, device_id, vehicle_id, driver_id, person_id, type, severity, message, lat, lon, ts)
+             VALUES (:company_id, :rule_id, :device_id, :vehicle_id, :driver_id, :person_id, :type, :severity, :message, :lat, :lon, :ts)'
         );
         $stmt->execute([
             ':company_id' => $companyId,
@@ -32,6 +32,7 @@ final class AlertRepository
             ':device_id'  => $a['device_id'],
             ':vehicle_id' => $a['vehicle_id'],
             ':driver_id'  => $a['driver_id'],
+            ':person_id'  => $a['person_id'] ?? null,
             ':type'       => $a['type'],
             ':severity'   => $a['severity'],
             ':message'    => $a['message'],

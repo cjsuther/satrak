@@ -10,14 +10,18 @@ use Satrak\Application\Support\Auth;
 use Satrak\Application\Support\Flash;
 use Satrak\Domain\Repositories\AuditRepository;
 use Satrak\Domain\Repositories\GeofenceRepository;
+use Satrak\Domain\Repositories\PersonRepository;
 use Satrak\Domain\Repositories\VehicleRepository;
 use Slim\Exception\HttpNotFoundException;
 use Slim\Views\Twig;
 
 /**
- * ABM de geocercas (círculo / polígono dibujados en Leaflet) y su alcance por
- * vehículo. Scopeado por empresa y auditado (§9.2). La geometría llega serializada
- * desde el editor de mapa y se valida en servidor.
+ * ABM de geocercas (círculo / polígono dibujados en Leaflet) y su alcance.
+ *
+ * El alcance es por tipo: una geocerca puede apuntar a vehículos y/o a personas.
+ * Si no se elige ninguno de un tipo, aplica a todos los de ese tipo. Scopeado por
+ * empresa y auditado (§9.2). La geometría llega serializada desde el editor de
+ * mapa y se valida en servidor.
  */
 final class GeofenceController
 {
@@ -28,6 +32,7 @@ final class GeofenceController
         private AuditRepository $audit,
         private GeofenceRepository $geofences,
         private VehicleRepository $vehicles,
+        private PersonRepository $people,
     ) {
     }
 
@@ -53,7 +58,9 @@ final class GeofenceController
             'mode'        => 'create',
             'g'           => ['name' => '', 'shape' => 'circle', 'geometry' => '', 'active' => 1],
             'vehicles'    => $this->vehicleOptions($companyId),
+            'people'      => $this->people->activeForCompany($companyId),
             'selectedIds' => [],
+            'selectedPeopleIds' => [],
         ]);
     }
 
@@ -67,13 +74,13 @@ final class GeofenceController
             return $this->renderForm($response->withStatus(422), 'create', $d, $companyId, $errors);
         }
 
-        $vehicleIds = $this->vehicleIdsScoped($d, $companyId);
         $id = $this->geofences->create(
             $companyId,
             trim((string) $d['name']),
             (string) $d['shape'],
             (string) $d['geometry'],
-            $vehicleIds
+            $this->vehicleIdsScoped($d, $companyId),
+            $this->personIdsScoped($d, $companyId)
         );
         $this->audit->log($companyId, $this->auth->id(), 'geofence.create', 'geofence', $id,
             ['name' => trim((string) $d['name']), 'shape' => $d['shape']], client_ip());
@@ -94,7 +101,9 @@ final class GeofenceController
             'mode'        => 'edit',
             'g'           => $g,
             'vehicles'    => $this->vehicleOptions($companyId),
+            'people'      => $this->people->activeForCompany($companyId),
             'selectedIds' => $this->geofences->vehicleIds((int) $g['id']),
+            'selectedPeopleIds' => $this->geofences->personIds((int) $g['id']),
         ]);
     }
 
@@ -119,7 +128,8 @@ final class GeofenceController
             trim((string) $d['name']),
             (string) $d['geometry'],
             $this->vehicleIdsScoped($d, $companyId),
-            ($d['active'] ?? '1') === '1'
+            ($d['active'] ?? '1') === '1',
+            $this->personIdsScoped($d, $companyId)
         );
         $this->audit->log($companyId, $this->auth->id(), 'geofence.update', 'geofence', (int) $g['id'], null, client_ip());
         $this->flash->success('Geocerca actualizada.');
@@ -169,6 +179,23 @@ final class GeofenceController
     }
 
     /**
+     * Personas elegidas, filtradas a las de la empresa.
+     *
+     * @param array<string,mixed> $d
+     * @return int[]
+     */
+    private function personIdsScoped(array $d, int $companyId): array
+    {
+        $ids = array_map('intval', (array) ($d['person_ids'] ?? []));
+        if ($ids === []) {
+            return [];
+        }
+        $valid = array_map(static fn ($p) => (int) $p['id'], $this->people->activeForCompany($companyId));
+
+        return array_values(array_intersect($ids, $valid));
+    }
+
+    /**
      * @param array<string,mixed> $d
      * @return array<string,string>
      */
@@ -212,7 +239,9 @@ final class GeofenceController
             'g'           => $g,
             'errors'      => $errors,
             'vehicles'    => $this->vehicleOptions($companyId),
+            'people'      => $this->people->activeForCompany($companyId),
             'selectedIds' => array_map('intval', (array) ($g['vehicle_ids'] ?? [])),
+            'selectedPeopleIds' => array_map('intval', (array) ($g['person_ids'] ?? [])),
         ]);
     }
 }

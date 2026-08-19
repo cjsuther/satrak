@@ -14,6 +14,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Satrak\Application\Middleware\CsrfMiddleware;
 use Satrak\Application\Support\Session;
+use Slim\Exception\HttpException;
 use Slim\Factory\AppFactory;
 use Slim\Views\TwigMiddleware;
 use Slim\Views\Twig;
@@ -85,7 +86,57 @@ $app->add(function (Request $request, $handler) use ($config): Response {
 $app->addRoutingMiddleware();
 
 // Error handler: en prod oculta detalles; en dev los muestra.
-$app->addErrorMiddleware($debug, true, true);
+$errorMiddleware = $app->addErrorMiddleware($debug, true, true);
+
+// La app móvil no sabe leer la página de error HTML de Slim: para /api/* el
+// error se devuelve con el mismo envelope {ok,data,error} que el resto.
+$errorMiddleware->setDefaultErrorHandler(
+    function (
+        Request $request,
+        Throwable $exception,
+        bool $displayErrorDetails,
+        bool $logErrors,
+        bool $logErrorDetails
+    ) use ($app, $debug): Response {
+        $isApi = str_starts_with($request->getUri()->getPath(), '/api/');
+
+        if (!$isApi) {
+            $handler = new Slim\Handlers\ErrorHandler(
+                $app->getCallableResolver(),
+                $app->getResponseFactory()
+            );
+
+            return $handler($request, $exception, $displayErrorDetails, $logErrors, $logErrorDetails);
+        }
+
+        $status = $exception instanceof Slim\Exception\HttpException
+            ? $exception->getCode()
+            : 500;
+        if ($status < 400 || $status > 599) {
+            $status = 500;
+        }
+
+        // En producción no se filtra el detalle interno al cliente.
+        $message = $exception instanceof Slim\Exception\HttpException || $debug
+            ? $exception->getMessage()
+            : 'Error interno del servidor.';
+
+        if (!$exception instanceof Slim\Exception\HttpException) {
+            error_log('[api] ' . $exception->getMessage() . ' @ '
+                . $exception->getFile() . ':' . $exception->getLine());
+        }
+
+        $response = $app->getResponseFactory()->createResponse($status);
+        $response->getBody()->write((string) json_encode(
+            ['ok' => false, 'data' => null, 'error' => $message],
+            JSON_UNESCAPED_UNICODE
+        ));
+
+        return $response
+            ->withHeader('Content-Type', 'application/json; charset=utf-8')
+            ->withHeader('Cache-Control', 'no-store');
+    }
+);
 
 /* --------------------------------------------------------------------------
  * Rutas

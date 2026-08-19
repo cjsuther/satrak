@@ -28,9 +28,13 @@ final class DashboardController
 
     public function index(Request $request, Response $response): Response
     {
-        // El conductor tiene su propio portal acotado; no ve el dashboard general.
+        // Conductor y persona tienen su propio portal acotado; no ven el
+        // dashboard general.
         if ($this->auth->role() === 'driver') {
             return $response->withHeader('Location', '/portal/actividad')->withStatus(302);
+        }
+        if ($this->auth->role() === 'person') {
+            return $response->withHeader('Location', '/mi')->withStatus(302);
         }
 
         $companyId = $request->getAttribute('company_id');   // scope efectivo

@@ -7,10 +7,24 @@
 
   // Colores de estado (tokens de identidad).
   var COLORS = {
+    // Flota
     movimiento: '#1FE0C4', // teal
     detenido:   '#6B7C93', // acero
     alerta:     '#FFB23E', // ámbar
-    offline:    '#3A4A5E'  // atenuado
+    offline:    '#3A4A5E', // atenuado
+    // Personal — la ignición no aplica: lo que importa es si está donde debe.
+    en_puesto:      '#1FE0C4',
+    en_mision:      '#5AA9FF',
+    fuera_de_puesto:'#FFB23E',
+    activa:         '#6B7C93',
+    fuera_de_turno: '#3A4A5E',
+    sin_senal:      '#3A4A5E'
+  };
+
+  var STATE_LABELS = {
+    movimiento: 'en movimiento', detenido: 'detenido', offline: 'sin señal',
+    en_puesto: 'en su puesto', en_mision: 'en misión', fuera_de_puesto: 'fuera de puesto',
+    activa: 'activa', fuera_de_turno: 'fuera de turno', sin_senal: 'sin señal'
   };
   var DEFAULT_CENTER = [-38.9516, -68.0591]; // Neuquén
   var DEFAULT_ZOOM = 12;
@@ -69,6 +83,7 @@
     var markers = {};            // device_id -> circleMarker
     var units = [];              // último snapshot
     var filter = 'all';
+    var kindFilter = 'all';      // all | vehicle | person
     var search = '';
     var fitted = false;
     var lastSyncMs = 0;
@@ -90,22 +105,51 @@
         applyMarkerVisibility();
       });
     });
+    document.querySelectorAll('[data-kind-filter]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('[data-kind-filter]').forEach(function (b) { b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        kindFilter = btn.dataset.kindFilter;
+        renderList();
+        applyMarkerVisibility();
+      });
+    });
+
+    function unitKey(u) {
+      return ((u.name || '') + ' ' + (u.plate || '') + ' ' + (u.label || '')).toLowerCase();
+    }
+
+    // 'movimiento' y 'detenido' sólo tienen sentido para flota; el filtro de
+    // estado no debe esconder personas cuando el usuario filtra por tipo.
+    function matchesState(u) {
+      if (filter === 'all') return true;
+      if (filter === 'offline') return u.state === 'offline' || u.state === 'sin_senal';
+      return u.state === filter;
+    }
 
     function matches(u) {
-      if (filter !== 'all' && u.state !== filter) return false;
-      if (search) {
-        var hay = ((u.plate || '') + ' ' + (u.label || '')).toLowerCase();
-        if (hay.indexOf(search) === -1) return false;
-      }
+      if (kindFilter !== 'all' && (u.kind || 'vehicle') !== kindFilter) return false;
+      if (!matchesState(u)) return false;
+      if (search && unitKey(u).indexOf(search) === -1) return false;
       return true;
     }
 
     function popupHtml(u) {
       var when = parseTs(u.ts);
-      return '<div class="map-popup">' +
-        '<strong>' + esc(u.plate || u.label) + '</strong><br>' +
-        'Conductor: ' + esc(u.driver || 'No identificado') + '<br>' +
-        '<span class="mono">' + (u.speed || 0) + ' km/h · ign ' + (u.ignition ? 'ON' : 'OFF') + '</span><br>' +
+      var head = '<strong>' + esc(u.name || u.plate || u.label) + '</strong><br>';
+      var body;
+
+      if ((u.kind || 'vehicle') === 'person') {
+        body = 'Estado: ' + esc(STATE_LABELS[u.state] || u.state) + '<br>' +
+          '<span class="mono">' + (u.speed || 0) + ' km/h' +
+          (u.battery !== null && u.battery !== undefined ? ' · batería ' + u.battery + '%' : '') +
+          '</span><br>';
+      } else {
+        body = 'Conductor: ' + esc(u.driver || 'No identificado') + '<br>' +
+          '<span class="mono">' + (u.speed || 0) + ' km/h · ign ' + (u.ignition ? 'ON' : 'OFF') + '</span><br>';
+      }
+
+      return '<div class="map-popup">' + head + body +
         '<span class="mono muted">' + (when ? ago(Date.now() - when.getTime()) : 's/d') + '</span>' +
         '</div>';
     }
@@ -119,19 +163,17 @@
       } else {
         m.setLatLng([u.lat, u.lon]);
       }
-      m.setStyle({ fillColor: COLORS[u.state] || COLORS.detenido, fillOpacity: u.state === 'offline' ? 0.45 : 1 });
+      var faded = u.state === 'offline' || u.state === 'sin_senal' || u.state === 'fuera_de_turno';
+      m.setStyle({ fillColor: COLORS[u.state] || COLORS.detenido, fillOpacity: faded ? 0.45 : 1 });
       m.bindPopup(popupHtml(u));
-      m._satState = u.state;
-      m._satKey = ((u.plate || '') + ' ' + (u.label || '')).toLowerCase();
+      m._satUnit = u;
     }
 
     function applyMarkerVisibility() {
       Object.keys(markers).forEach(function (id) {
         var m = markers[id];
-        var visible = (filter === 'all' || m._satState === filter)
-          && (!search || m._satKey.indexOf(search) !== -1);
         var el = m.getElement();
-        if (el) el.style.display = visible ? '' : 'none';
+        if (el) el.style.display = matches(m._satUnit) ? '' : 'none';
       });
     }
 
@@ -144,10 +186,16 @@
       }
       listEl.innerHTML = shown.map(function (u) {
         var when = parseTs(u.ts);
+        var sub = (u.kind || 'vehicle') === 'person'
+          ? esc(STATE_LABELS[u.state] || u.state) +
+            (u.battery !== null && u.battery !== undefined ? ' · ' + u.battery + '%' : '')
+          : (u.speed || 0) + ' km/h · ' + esc(u.driver || 'no identif.');
+        var icon = (u.kind || 'vehicle') === 'person' ? '☺' : '⛟';
+
         return '<li class="unit-item" data-go="' + u.device_id + '">' +
           '<span class="unit-dot" style="background:' + (COLORS[u.state] || COLORS.detenido) + '"></span>' +
-          '<span class="unit-main"><span class="unit-name">' + esc(u.plate || u.label) + '</span>' +
-          '<span class="unit-sub mono muted">' + (u.speed || 0) + ' km/h · ' + esc(u.driver || 'no identif.') + '</span></span>' +
+          '<span class="unit-main"><span class="unit-name">' + icon + ' ' + esc(u.name || u.plate || u.label) + '</span>' +
+          '<span class="unit-sub mono muted">' + sub + '</span></span>' +
           '<span class="unit-when mono muted">' + (when ? ago(Date.now() - when.getTime()) : '—') + '</span></li>';
       }).join('');
       listEl.querySelectorAll('[data-go]').forEach(function (li) {

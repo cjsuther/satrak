@@ -104,12 +104,13 @@ final class UserRepository extends BaseRepository
     public function create(array $data): int
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO users (company_id, driver_id, name, email, password_hash, role, status)
-             VALUES (:company_id, :driver_id, :name, :email, :password_hash, :role, :status)'
+            'INSERT INTO users (company_id, driver_id, person_id, name, email, password_hash, role, status)
+             VALUES (:company_id, :driver_id, :person_id, :name, :email, :password_hash, :role, :status)'
         );
         $stmt->execute([
             ':company_id'    => $data['company_id'],
             ':driver_id'     => $data['driver_id'] ?? null,
+            ':person_id'     => $data['person_id'] ?? null,
             ':name'          => $data['name'],
             ':email'         => mb_strtolower(trim($data['email'])),
             ':password_hash' => $data['password_hash'],
@@ -128,7 +129,8 @@ final class UserRepository extends BaseRepository
     public function update(int $id, array $data): void
     {
         $stmt = $this->db->prepare(
-            'UPDATE users SET name=:name, email=:email, role=:role, status=:status, driver_id=:driver_id WHERE id=:id'
+            'UPDATE users SET name=:name, email=:email, role=:role, status=:status,
+             driver_id=:driver_id, person_id=:person_id WHERE id=:id'
         );
         $stmt->execute([
             ':name'      => $data['name'],
@@ -136,6 +138,7 @@ final class UserRepository extends BaseRepository
             ':role'      => $data['role'],
             ':status'    => $data['status'],
             ':driver_id' => $data['driver_id'] ?? null,
+            ':person_id' => $data['person_id'] ?? null,
             ':id'        => $id,
         ]);
     }

@@ -17,6 +17,16 @@ final class TripRepository
     {
     }
 
+    /**
+     * Atribuye un recorrido a una persona (y a la misión que lo autorizaba).
+     * El equivalente de `driver_id` para el módulo de personal.
+     */
+    public function setPerson(int $tripId, int $personId, ?int $missionId = null): void
+    {
+        $stmt = $this->db->prepare('UPDATE trips SET person_id = ?, mission_id = ? WHERE id = ?');
+        $stmt->execute([$personId, $missionId, $tripId]);
+    }
+
     /** @return array<string,mixed>|null */
     public function find(int $tripId): ?array
     {

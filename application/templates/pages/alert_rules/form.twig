@@ -31,11 +31,19 @@
       {% if errors.max_kmh is defined %}<small class="field-error">{{ errors.max_kmh }}</small>{% endif %}
     </label>
 
-    {# idle / offline #}
-    <label class="field" data-param="minutes" {{ r.type not in ['idle','offline'] ? 'hidden' }}>
+    {# idle / offline / sin movimiento / app sin reportar #}
+    <label class="field" data-param="minutes"
+           {{ r.type not in ['idle','offline','no_movement','app_offline'] ? 'hidden' }}>
       <span class="field-label">Minutos</span>
       <input class="input mono" type="number" name="minutes" min="1" value="{{ r.params.minutes|default(10) }}">
       {% if errors.minutes is defined %}<small class="field-error">{{ errors.minutes }}</small>{% endif %}
+    </label>
+
+    {# batería baja #}
+    <label class="field" data-param="pct" {{ r.type != 'low_battery' ? 'hidden' }}>
+      <span class="field-label">Umbral de batería (%)</span>
+      <input class="input mono" type="number" name="pct" min="1" max="100" value="{{ r.params.pct|default(15) }}">
+      {% if errors.pct is defined %}<small class="field-error">{{ errors.pct }}</small>{% endif %}
     </label>
 
     {# geofence #}

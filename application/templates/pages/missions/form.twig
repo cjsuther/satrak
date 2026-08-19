@@ -1,0 +1,76 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ mode == 'create' ? 'Nueva misión' : 'Editar misión' }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/misiones">Misiones</a> / {{ mode == 'create' ? 'nueva' : 'editar' }}</span>
+  <h1>{{ mode == 'create' ? 'Nueva misión' : 'Editar misión' }}</h1></div>
+</div>
+
+<form method="post" action="{{ mode == 'create' ? '/misiones' : '/misiones/' ~ m.id }}" class="card form-card" novalidate>
+  {{ csrf_field() }}
+
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Persona *</span>
+      <select class="input" name="person_id" required>
+        <option value="">— Elegir —</option>
+        {% for p in people %}
+          <option value="{{ p.id }}" {{ m.person_id == p.id ? 'selected' }}>{{ p.last_name }}, {{ p.first_name }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.person_id is defined %}<small class="field-error">{{ errors.person_id }}</small>{% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field-label">Destino *</span>
+      <select class="input" name="dest_geofence_id" required>
+        <option value="">— Elegir geocerca —</option>
+        {% for g in geofences %}
+          <option value="{{ g.id }}" {{ m.dest_geofence_id == g.id ? 'selected' }}>{{ g.name }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.dest_geofence_id is defined %}<small class="field-error">{{ errors.dest_geofence_id }}</small>{% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field-label">Origen</span>
+      <select class="input" name="origin_geofence_id">
+        <option value="0">— Desde su puesto —</option>
+        {% for g in geofences %}
+          <option value="{{ g.id }}" {{ m.origin_geofence_id == g.id ? 'selected' }}>{{ g.name }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.origin_geofence_id is defined %}<small class="field-error">{{ errors.origin_geofence_id }}</small>{% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field-label">Inicio previsto *</span>
+      <input class="input mono" type="datetime-local" name="scheduled_start"
+             value="{{ m.scheduled_start|default('') }}" required>
+      {% if errors.scheduled_start is defined %}<small class="field-error">{{ errors.scheduled_start }}</small>{% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field-label">Fin previsto *</span>
+      <input class="input mono" type="datetime-local" name="scheduled_end"
+             value="{{ m.scheduled_end|default('') }}" required>
+      {% if errors.scheduled_end is defined %}<small class="field-error">{{ errors.scheduled_end }}</small>{% endif %}
+    </label>
+
+    <label class="field">
+      <span class="field-label">Notas</span>
+      <input class="input" name="notes" maxlength="255" value="{{ m.notes|default('') }}">
+    </label>
+  </div>
+
+  <p class="muted">
+    Pasado el fin previsto sin haber llegado, la misión queda «no cumplida» y se genera una alerta.
+  </p>
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/misiones">Cancelar</a>
+    <button class="btn btn-primary" type="submit">{{ mode == 'create' ? 'Crear misión' : 'Guardar cambios' }}</button>
+  </div>
+</form>
+{% endblock %}

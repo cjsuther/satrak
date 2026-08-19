@@ -52,6 +52,19 @@ return [
         'max_length' => 10,
     ],
 
+    // Módulo de personas (rastreo de personal)
+    'people' => [
+        'moving_sample_seconds'  => 60,   // frecuencia de reporte de la app en movimiento
+        'stopped_sample_seconds' => 300,  // ídem detenida (cuida la batería en equipos viejos)
+        'walk_speed_kmh'         => 2,    // por debajo, se considera detenida
+        'min_step_m'             => 25,   // desplazamiento mínimo entre puntos (filtra ruido GPS)
+        'max_accuracy_m'         => 100,  // puntos menos precisos que esto se descartan
+        'person_stop_minutes'    => 10,   // detenida => corta el recorrido
+        'no_movement_minutes'    => 15,   // sin desplazarse en jornada => alerta (hombre caído)
+        'app_offline_minutes'    => 15,   // en jornada y sin reportar => alerta
+        'low_battery_pct'        => 15,   // por debajo => alerta
+    ],
+
     // Endpoint /cron/run opcional (no prioritario: el cron real corre por CLI).
     'cron' => [
         'token' => 'CAMBIAR_POR_TOKEN_LARGO_Y_ALEATORIO',

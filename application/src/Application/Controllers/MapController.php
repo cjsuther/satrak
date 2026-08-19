@@ -6,12 +6,25 @@ namespace Satrak\Application\Controllers;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Satrak\Application\Support\Entitlements;
 use Satrak\Domain\Repositories\DeviceRepository;
+use Satrak\Domain\Repositories\MissionRepository;
 use Satrak\Domain\Repositories\MonitoringRepository;
+use Satrak\Domain\Repositories\PersonPostRepository;
+use Satrak\Domain\Services\GeofenceMath;
+use Satrak\Domain\Services\ShiftGuard;
 use Slim\Views\Twig;
 
 /**
- * Monitoreo: mapa en vivo (§10) e historial / reproducción (§11).
+ * Monitoreo: mapa unificado en vivo (§10) e historial / reproducción (§11).
+ *
+ * El mapa muestra **vehículos y personas juntos**, filtrables por tipo. Cada
+ * unidad trae su `kind`, su etiqueta (patente o nombre) y un estado propio de su
+ * tipo: la ignición no significa nada para una persona, y el puesto/misión no
+ * significan nada para un vehículo.
+ *
+ * Lo que se emite respeta los módulos contratados: una empresa que sólo contrató
+ * flota no recibe unidades de persona, y viceversa.
  *
  * Las páginas renderizan el contenedor del mapa; el JS (`map.js`) consume los
  * endpoints JSON de acá por polling (vivo) o a demanda (historial). Todo
@@ -26,6 +39,10 @@ final class MapController
         private int $offlineMinutes,
         private int $livePollSeconds,
         private int $movingSpeedKmh = 5,
+        private ?Entitlements $entitlements = null,
+        private ?PersonPostRepository $posts = null,
+        private ?MissionRepository $missions = null,
+        private ?ShiftGuard $shiftGuard = null,
     ) {
     }
 
@@ -73,27 +90,121 @@ final class MapController
         $companyId = (int) $request->getAttribute('company_id');
         $rows = $this->monitoring->livePositions($companyId);
 
+        $showFleet = $this->entitlements === null || $this->entitlements->has('fleet');
+        $showPeople = $this->entitlements === null || $this->entitlements->has('people');
+
+        // Puestos y misiones vigentes de una sola consulta: el mapa se pollea
+        // cada pocos segundos y no puede hacer N+1 por persona.
+        $posts = $showPeople && $this->posts !== null
+            ? $this->posts->currentByCompany($companyId)
+            : [];
+
         $units = [];
         foreach ($rows as $r) {
             if ($r['lat'] === null || $r['lon'] === null) {
                 continue; // todavía sin señal: no se puede ubicar en el mapa.
             }
-            $units[] = [
-                'device_id' => (int) $r['device_id'],
-                'plate'     => $r['plate'],
-                'label'     => $r['label'] ?? $r['imei'],
-                'lat'       => (float) $r['lat'],
-                'lon'       => (float) $r['lon'],
-                'speed'     => (int) ($r['speed'] ?? 0),
-                'heading'   => (int) ($r['heading'] ?? 0),
-                'ignition'  => $r['ignition'] !== null ? (int) $r['ignition'] : null,
-                'driver'    => $this->driverName($r),
-                'ts'        => $r['ts'],
-                'state'     => $this->deviceState($r),
-            ];
+
+            $isPerson = ($r['kind'] ?? 'vehicle') === 'person';
+            if (($isPerson && !$showPeople) || (!$isPerson && !$showFleet)) {
+                continue;
+            }
+
+            $units[] = $isPerson
+                ? $this->personUnit($r, $companyId, $posts)
+                : $this->vehicleUnit($r);
         }
 
         return $this->json($response, ['units' => $units, 'server_time' => date('c')]);
+    }
+
+    /** @param array<string,mixed> $r @return array<string,mixed> */
+    private function vehicleUnit(array $r): array
+    {
+        return [
+            'device_id' => (int) $r['device_id'],
+            'kind'      => 'vehicle',
+            'name'      => $r['plate'] ?: ($r['label'] ?? $r['imei']),
+            'plate'     => $r['plate'],
+            'label'     => $r['label'] ?? $r['imei'],
+            'lat'       => (float) $r['lat'],
+            'lon'       => (float) $r['lon'],
+            'speed'     => (int) ($r['speed'] ?? 0),
+            'heading'   => (int) ($r['heading'] ?? 0),
+            'ignition'  => $r['ignition'] !== null ? (int) $r['ignition'] : null,
+            'driver'    => $this->driverName($r),
+            'ts'        => $r['ts'],
+            'state'     => $this->deviceState($r),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $r
+     * @param array<int,array<string,mixed>> $posts puestos vigentes por person_id
+     * @return array<string,mixed>
+     */
+    private function personUnit(array $r, int $companyId, array $posts): array
+    {
+        $personId = $r['person_id'] !== null ? (int) $r['person_id'] : null;
+        $name = trim(($r['person_last_name'] ?? '') . ', ' . ($r['person_first_name'] ?? ''));
+
+        return [
+            'device_id' => (int) $r['device_id'],
+            'kind'      => 'person',
+            'person_id' => $personId,
+            'name'      => trim($name, ', ') ?: ($r['label'] ?? $r['imei']),
+            'plate'     => null,
+            'label'     => $r['label'] ?? $r['imei'],
+            'lat'       => (float) $r['lat'],
+            'lon'       => (float) $r['lon'],
+            'speed'     => (int) ($r['speed'] ?? 0),
+            'heading'   => (int) ($r['heading'] ?? 0),
+            'ignition'  => null,
+            'battery'   => $r['battery_pct'] !== null ? (int) $r['battery_pct'] : null,
+            'driver'    => null,
+            'ts'        => $r['ts'],
+            'state'     => $this->personState($r, $personId, $companyId, $posts),
+        ];
+    }
+
+    /**
+     * Estado de una persona para el color del marcador. La ignición no aplica:
+     * lo que importa es si está donde debería estar.
+     *
+     * @param array<string,mixed> $r
+     * @param array<int,array<string,mixed>> $posts
+     */
+    private function personState(array $r, ?int $personId, int $companyId, array $posts): string
+    {
+        $lastSeen = $r['last_seen_at'] ?? null;
+        if ($lastSeen === null || strtotime((string) $lastSeen) < time() - $this->offlineMinutes * 60) {
+            return 'sin_senal';
+        }
+        if ($personId === null) {
+            return 'activa';
+        }
+
+        if ($this->shiftGuard !== null
+            && !$this->shiftGuard->isWithinShift($personId, $companyId, date('Y-m-d H:i:s'))) {
+            return 'fuera_de_turno';
+        }
+
+        if ($this->missions !== null && $this->missions->activeForPerson($personId, $companyId) !== null) {
+            return 'en_mision';
+        }
+
+        $post = $posts[$personId] ?? null;
+        if ($post === null) {
+            return 'activa';
+        }
+
+        $inside = GeofenceMath::contains(
+            ['shape' => $post['shape'], 'geometry' => $post['geometry']],
+            (float) $r['lat'],
+            (float) $r['lon']
+        );
+
+        return $inside ? 'en_puesto' : 'fuera_de_puesto';
     }
 
     public function track(Request $request, Response $response, array $args): Response

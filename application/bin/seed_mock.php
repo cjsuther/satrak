@@ -35,7 +35,7 @@ $everySec = isset($opts['every']) ? max(1, (int) $opts['every']) : 5;
 if ($reset) {
     foreach ([
         'positions', 'device_events', 'trips', 'processor_state',
-        'notifications', 'alerts', 'alert_rules', 'geofence_vehicles', 'geofences',
+        'notifications', 'alerts', 'alert_rules', 'geofence_targets', 'geofences',
     ] as $t) {
         $pdo->exec("DELETE FROM {$t}");
     }

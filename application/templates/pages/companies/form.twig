@@ -21,6 +21,10 @@
       <input class="input" type="number" name="device_quota" min="0" value="{{ company.device_quota|default(0) }}">
     </label>
     <label class="field">
+      <span class="field-label">Cupo de personas</span>
+      <input class="input" type="number" name="person_quota" min="0" value="{{ company.person_quota|default(0) }}">
+    </label>
+    <label class="field">
       <span class="field-label">Estado</span>
       <select class="input" name="status">
         <option value="active" {{ company.status == 'active' ? 'selected' }}>Activa</option>
@@ -31,6 +35,32 @@
       <span class="field-label">Zona horaria</span>
       <input class="input mono" name="timezone" value="{{ company.timezone|default('America/Argentina/Buenos_Aires') }}">
     </label>
+    <label class="field">
+      <span class="field-label">Email de guardia</span>
+      <input class="input" type="email" name="emergency_email" value="{{ company.emergency_email|default('') }}"
+             placeholder="guardia@empresa.com">
+      <small class="muted">Recibe siempre el botón de pánico y el SOS, además de admins y operadores.</small>
+    </label>
+  </div>
+
+  {# Módulos contratados: gatean los permisos del rol (ver Entitlements). #}
+  {% set contracted = (company.modules|default('fleet'))|split(',') %}
+  <div class="form-section">
+    <span class="eyebrow">Módulos contratados</span>
+    <p class="muted">
+      Definen qué ve la empresa. Sin «Flota» no hay vehículos ni dispositivos;
+      sin «Personal» no hay módulo de personas. Al menos uno.
+    </p>
+    <div class="checkbox-grid">
+      <label class="checkbox-pill">
+        <input type="checkbox" name="modules[]" value="fleet" {{ 'fleet' in contracted ? 'checked' }}>
+        <span>Flota (vehículos)</span>
+      </label>
+      <label class="checkbox-pill">
+        <input type="checkbox" name="modules[]" value="people" {{ 'people' in contracted ? 'checked' }}>
+        <span>Personal (personas)</span>
+      </label>
+    </div>
   </div>
 
   {% if mode == 'create' %}

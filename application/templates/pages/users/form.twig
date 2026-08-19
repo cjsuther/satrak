@@ -39,6 +39,16 @@
       </select>
       {% if errors.driver_id is defined %}<small class="field-error">{{ errors.driver_id }}</small>{% endif %}
     </label>
+    <label class="field" data-person-field {{ u.role == 'person' ? '' : 'hidden' }}>
+      <span class="field-label">Persona asociada (portal)</span>
+      <select class="input" name="person_id">
+        <option value="">— elegir —</option>
+        {% for pe in people %}
+          <option value="{{ pe.id }}" {{ u.person_id == pe.id ? 'selected' }}>{{ pe.last_name }}, {{ pe.first_name }}{{ pe.dni ? ' · DNI ' ~ pe.dni }}</option>
+        {% endfor %}
+      </select>
+      {% if errors.person_id is defined %}<small class="field-error">{{ errors.person_id }}</small>{% endif %}
+    </label>
     <label class="field">
       <span class="field-label">Contraseña {{ mode == 'create' ? '*' : '(dejar vacío para no cambiar)' }}</span>
       <input class="input" type="password" name="password" autocomplete="new-password">

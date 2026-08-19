@@ -24,6 +24,9 @@ return [
         Perm::REPORTS_VIEW,
         Perm::PROFILE_EDIT,
         Perm::AUDIT_COMPANY,
+        Perm::PEOPLE_MANAGE,
+        Perm::PEOPLE_MONITOR,
+        Perm::MISSIONS_MANAGE,
     ],
 
     'operator' => [
@@ -32,10 +35,17 @@ return [
         Perm::ALERTS_ACK,
         Perm::REPORTS_VIEW,
         Perm::PROFILE_EDIT,
+        Perm::PEOPLE_MONITOR,
+        Perm::MISSIONS_MANAGE,
     ],
 
     'driver' => [
         Perm::DRIVER_PORTAL,
+        Perm::PROFILE_EDIT,
+    ],
+
+    'person' => [
+        Perm::PERSON_PORTAL,
         Perm::PROFILE_EDIT,
     ],
 ];

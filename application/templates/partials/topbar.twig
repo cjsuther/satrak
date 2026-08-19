@@ -33,7 +33,11 @@
           <ul class="bell-list" data-bell-list>
             <li class="bell-empty muted">Sin notificaciones nuevas.</li>
           </ul>
-          <a class="bell-foot" href="/alertas">Ver todas las alertas →</a>
+          {# El pie sólo se ofrece a quien puede abrir /alertas: los portales
+             (conductor, persona) no tienen ese permiso y verían un 403. #}
+          {% if can('alerts.ack') %}
+            <a class="bell-foot" href="/alertas">Ver todas las alertas →</a>
+          {% endif %}
         </div>
       </details>
     </div>

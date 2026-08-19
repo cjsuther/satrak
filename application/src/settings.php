@@ -39,5 +39,16 @@ $config['tracking'] = ($config['tracking'] ?? []) + [
 ];
 $config['pin']      = ($config['pin']      ?? []) + ['min_length' => 4, 'max_length' => 10];
 $config['map']      = ($config['map']      ?? []) + ['live_poll_seconds' => 15];
+$config['people']   = ($config['people']   ?? []) + [
+    'moving_sample_seconds'  => 60,
+    'stopped_sample_seconds' => 300,
+    'walk_speed_kmh'         => 2,
+    'min_step_m'             => 25,
+    'max_accuracy_m'         => 100,
+    'person_stop_minutes'    => 10,
+    'no_movement_minutes'    => 15,
+    'app_offline_minutes'    => 15,
+    'low_battery_pct'        => 15,
+];
 
 return $config;

@@ -59,20 +59,39 @@
     {% if errors.geometry is defined %}<small class="field-error">{{ errors.geometry }}</small>{% endif %}
   </div>
 
-  <fieldset class="field" style="border:0;padding:0;margin-top:var(--space-5)">
-    <span class="field-label">Alcance (vehículos)</span>
-    <p class="muted" style="font-size:var(--fs-mono);margin:.2rem 0 .6rem">Sin seleccionar = aplica a todos los vehículos.</p>
-    <div class="checkbox-grid">
-      {% for v in vehicles %}
-        <label class="checkbox-pill">
-          <input type="checkbox" name="vehicle_ids[]" value="{{ v.id }}" {{ v.id in selectedIds ? 'checked' }}>
-          <span class="mono">{{ v.plate }}</span>
-        </label>
-      {% else %}
-        <span class="muted">No hay vehículos activos.</span>
-      {% endfor %}
-    </div>
-  </fieldset>
+  {% if can('fleet.manage') %}
+    <fieldset class="field" style="border:0;padding:0;margin-top:var(--space-5)">
+      <span class="field-label">Alcance (vehículos)</span>
+      <p class="muted" style="font-size:var(--fs-mono);margin:.2rem 0 .6rem">Sin seleccionar = aplica a todos los vehículos.</p>
+      <div class="checkbox-grid">
+        {% for v in vehicles %}
+          <label class="checkbox-pill">
+            <input type="checkbox" name="vehicle_ids[]" value="{{ v.id }}" {{ v.id in selectedIds ? 'checked' }}>
+            <span class="mono">{{ v.plate }}</span>
+          </label>
+        {% else %}
+          <span class="muted">No hay vehículos activos.</span>
+        {% endfor %}
+      </div>
+    </fieldset>
+  {% endif %}
+
+  {% if can('people.monitor') %}
+    <fieldset class="field" style="border:0;padding:0;margin-top:var(--space-5)">
+      <span class="field-label">Alcance (personas)</span>
+      <p class="muted" style="font-size:var(--fs-mono);margin:.2rem 0 .6rem">Sin seleccionar = aplica a todas las personas.</p>
+      <div class="checkbox-grid">
+        {% for p in people %}
+          <label class="checkbox-pill">
+            <input type="checkbox" name="person_ids[]" value="{{ p.id }}" {{ p.id in selectedPeopleIds ? 'checked' }}>
+            <span>{{ p.last_name }}, {{ p.first_name }}</span>
+          </label>
+        {% else %}
+          <span class="muted">No hay personas activas.</span>
+        {% endfor %}
+      </div>
+    </fieldset>
+  {% endif %}
 
   <div class="form-actions">
     <a class="btn btn-secondary" href="/geocercas">Cancelar</a>

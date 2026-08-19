@@ -43,26 +43,58 @@ return [
         dirname(__DIR__) . '/storage/logs'
     ),
 
-    // DriverController necesita los límites de PIN desde config.
-    Satrak\Application\Controllers\DriverController::class => fn (ContainerInterface $c) =>
-        new Satrak\Application\Controllers\DriverController(
+    // Módulos contratados por la empresa en contexto. Una sola instancia por
+    // request: la llena TenantMiddleware y la leen RbacMiddleware y can().
+    Satrak\Application\Support\Entitlements::class => fn () => new Satrak\Application\Support\Entitlements(),
+
+    // PersonController necesita los límites de PIN desde config (perfil de conductor).
+    Satrak\Application\Controllers\PersonController::class => fn (ContainerInterface $c) =>
+        new Satrak\Application\Controllers\PersonController(
             $c->get(Slim\Views\Twig::class),
             $c->get(Satrak\Application\Support\Auth::class),
             $c->get(Satrak\Application\Support\Flash::class),
             $c->get(Satrak\Domain\Repositories\AuditRepository::class),
+            $c->get(Satrak\Domain\Repositories\PersonRepository::class),
             $c->get(Satrak\Domain\Repositories\DriverRepository::class),
+            $c->get(Satrak\Domain\Repositories\CompanyRepository::class),
             (int) ($config['pin']['min_length'] ?? 4),
             (int) ($config['pin']['max_length'] ?? 10)
         ),
 
-    // MapController necesita los umbrales de monitoreo desde config.
+    // AppApiController necesita los intervalos de muestreo de la app desde config.
+    Satrak\Application\Controllers\AppApiController::class => fn (ContainerInterface $c) =>
+        new Satrak\Application\Controllers\AppApiController(
+            $c->get(Satrak\Domain\Repositories\PersonRepository::class),
+            $c->get(Satrak\Domain\Repositories\PersonAppSessionRepository::class),
+            $c->get(Satrak\Domain\Repositories\DeviceRepository::class),
+            $c->get(Satrak\Domain\Repositories\DevicePersonAssignmentRepository::class),
+            $c->get(Satrak\Domain\Repositories\CompanyRepository::class),
+            $c->get(Satrak\Domain\Repositories\PositionRepository::class),
+            $c->get(Satrak\Domain\Repositories\DeviceEventRepository::class),
+            $c->get(Satrak\Domain\Repositories\MissionRepository::class),
+            $c->get(Satrak\Domain\Repositories\PersonPostRepository::class),
+            $c->get(Satrak\Domain\Repositories\PersonShiftRepository::class),
+            $c->get(Satrak\Domain\Services\ShiftGuard::class),
+            $c->get(Satrak\Domain\Repositories\AuditRepository::class),
+            $c->get(RateLimiter::class),
+            (int) ($config['people']['moving_sample_seconds'] ?? 60),
+            (int) ($config['people']['stopped_sample_seconds'] ?? 300)
+        ),
+
+    // MapController necesita los umbrales de monitoreo desde config y, para el
+    // mapa unificado, el contexto de personas (puesto, misión, jornada).
     Satrak\Application\Controllers\MapController::class => fn (ContainerInterface $c) =>
         new Satrak\Application\Controllers\MapController(
             $c->get(Slim\Views\Twig::class),
             $c->get(Satrak\Domain\Repositories\MonitoringRepository::class),
             $c->get(Satrak\Domain\Repositories\DeviceRepository::class),
             (int) ($config['tracking']['offline_minutes'] ?? 30),
-            (int) ($config['map']['live_poll_seconds'] ?? 15)
+            (int) ($config['map']['live_poll_seconds'] ?? 15),
+            5,
+            $c->get(Satrak\Application\Support\Entitlements::class),
+            $c->get(Satrak\Domain\Repositories\PersonPostRepository::class),
+            $c->get(Satrak\Domain\Repositories\MissionRepository::class),
+            $c->get(Satrak\Domain\Services\ShiftGuard::class)
         ),
 
     // AuthService necesita el base_url para construir el link de recupero.
@@ -101,9 +133,12 @@ return [
                 . htmlspecialchars($csrf->token(), ENT_QUOTES) . '">';
         }, ['is_safe' => ['html']]));
 
-        // can('permiso') para mostrar/ocultar ítems de menú según rol.
+        // can('permiso') para mostrar/ocultar ítems de menú. Mismo criterio que
+        // RbacMiddleware: el rol tiene que poder Y la empresa tiene que haberlo
+        // contratado, para no ofrecer links que después dan 403.
         $env->addFunction(new \Twig\TwigFunction('can', function (string $permission) use ($c): bool {
-            return $c->get(Rbac::class)->roleCan($c->get(Auth::class)->role(), $permission);
+            return $c->get(Rbac::class)->roleCan($c->get(Auth::class)->role(), $permission)
+                && $c->get(Satrak\Application\Support\Entitlements::class)->allows($permission);
         }));
 
         // json_decode: para leer columnas JSON (params/channels de reglas) en vistas.

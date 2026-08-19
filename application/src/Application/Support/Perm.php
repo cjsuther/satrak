@@ -28,9 +28,16 @@ final class Perm
     public const REPORTS_VIEW       = 'reports.view';        // ver reportes
     public const AUDIT_COMPANY      = 'audit.company';
 
+    // Módulo de Personas. Separado de los de flota: una empresa puede contratar
+    // sólo rastreo de personal, sólo vehículos, o ambos.
+    public const PEOPLE_MANAGE   = 'people.manage';    // ABM personas, jornadas, puestos
+    public const PEOPLE_MONITOR  = 'people.monitor';   // ver personas en mapa/historial/reportes
+    public const MISSIONS_MANAGE = 'missions.manage';  // asignar y cerrar misiones
+
     // Común
     public const PROFILE_EDIT  = 'profile.edit';   // ver/editar su propio perfil
     public const DRIVER_PORTAL = 'driver.portal';  // portal del conductor (solo lo propio)
+    public const PERSON_PORTAL = 'person.portal';  // portal de la persona (solo lo propio)
 
     private function __construct()
     {

@@ -3,13 +3,17 @@
 
 {% set typeLabels = {
   'speed': 'Exceso de velocidad', 'geofence_enter': 'Entrada a geocerca',
-  'geofence_exit': 'Salida de geocerca', 'idle': 'Ralentí', 'offline': 'Sin señal', 'sos': 'SOS'
+  'geofence_exit': 'Salida de geocerca', 'idle': 'Ralentí', 'offline': 'Sin señal', 'sos': 'SOS',
+  'panic': 'Botón de pánico', 'no_movement': 'Sin movimiento', 'off_post': 'Fuera de puesto',
+  'mission_late': 'Misión demorada', 'mission_missed': 'Misión no iniciada',
+  'low_battery': 'Batería baja', 'app_offline': 'App sin reportar'
 } %}
 {% set fromLocal = from|date('Y-m-d\\TH:i') %}
 {% set toLocal = to|date('Y-m-d\\TH:i') %}
 {% set qs = 'r=' ~ kind ~ '&from=' ~ from|url_encode ~ '&to=' ~ to|url_encode
    ~ (vehicle_id ? '&vehicle_id=' ~ vehicle_id : '')
    ~ (driver_id ? '&driver_id=' ~ driver_id : '')
+   ~ (person_id ? '&person_id=' ~ person_id : '')
    ~ (type ? '&type=' ~ type : '') ~ (severity ? '&severity=' ~ severity : '') ~ (status ? '&status=' ~ status : '') %}
 
 {% block content %}
@@ -21,6 +25,9 @@
 <div class="map-filters" role="tablist" style="margin-bottom:var(--space-5)">
   <a class="chip {{ kind == 'vehicle' ? 'is-active' : '' }}" href="/reportes?r=vehicle">Por vehículo</a>
   <a class="chip {{ kind == 'driver' ? 'is-active' : '' }}" href="/reportes?r=driver">Por conductor</a>
+  {% if can('people.monitor') %}
+    <a class="chip {{ kind == 'person' ? 'is-active' : '' }}" href="/reportes?r=person">Por persona</a>
+  {% endif %}
   <a class="chip {{ kind == 'alerts' ? 'is-active' : '' }}" href="/reportes?r=alerts">Alertas</a>
 </div>
 
@@ -41,6 +48,13 @@
       <select name="driver_id" class="input">
         <option value="">Todos</option>
         {% for d in drivers %}<option value="{{ d.id }}" {{ d.id == driver_id ? 'selected' }}>{{ d.first_name }} {{ d.last_name }}</option>{% endfor %}
+      </select>
+    </label>
+  {% elseif kind == 'person' %}
+    <label class="field"><span>Persona</span>
+      <select name="person_id" class="input">
+        <option value="">Todas</option>
+        {% for p in people %}<option value="{{ p.id }}" {{ p.id == person_id ? 'selected' }}>{{ p.last_name }}, {{ p.first_name }}</option>{% endfor %}
       </select>
     </label>
   {% else %}
@@ -71,15 +85,15 @@
 <div class="card">
   {% if kind == 'alerts' %}
     <table class="data-table">
-      <thead><tr><th>Fecha</th><th>Tipo</th><th>Severidad</th><th>Vehículo</th><th>Conductor</th><th>Mensaje</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Severidad</th><th>Unidad</th><th>Persona / conductor</th><th>Mensaje</th><th>Estado</th></tr></thead>
       <tbody>
         {% for a in rows %}
           <tr>
             <td class="mono muted">{{ a.ts|date('d/m H:i') }}</td>
             <td>{{ typeLabels[a.type] ?? a.type }}</td>
             <td><span class="badge {{ a.severity == 'critical' ? 'badge-crit' : (a.severity == 'warning' ? 'badge-alert' : 'badge-ok') }}"><span class="dot"></span>{{ a.severity }}</span></td>
-            <td class="mono">{{ a.plate ?? '—' }}</td>
-            <td>{{ a.driver_name ?: 'No identificado' }}</td>
+            <td class="mono">{{ a.plate ?: (a.person_name ? 'persona' : '—') }}</td>
+            <td>{{ a.person_name ?: (a.driver_name ?: 'No identificado') }}</td>
             <td>{{ a.message }}</td>
             <td class="mono muted">{{ a.acknowledged_at ? '✓' : '—' }}</td>
           </tr>
@@ -87,6 +101,69 @@
           <tr><td colspan="7" class="muted">Sin alertas en el período.</td></tr>
         {% endfor %}
       </tbody>
+    </table>
+  {% elseif kind == 'person' %}
+    <p class="muted" style="margin-bottom:var(--space-4)">
+      «Con reporte» es el tiempo entre el primer y el último punto de cada día;
+      la cobertura lo compara contra la jornada configurada.
+    </p>
+    <table class="data-table">
+      <thead><tr>
+        <th>Persona</th>
+        <th class="ta-right">Días</th>
+        <th class="ta-right">Jornada</th>
+        <th class="ta-right">Con reporte</th>
+        <th class="ta-right">Cobertura</th>
+        <th class="ta-right">Recorridos</th>
+        <th class="ta-right">Km</th>
+        <th class="ta-right">Misiones</th>
+        <th class="ta-right">Fuera de puesto</th>
+        <th class="ta-right">Sin mov.</th>
+        <th class="ta-right">Pánico</th>
+      </tr></thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td><strong>{{ r.label }}</strong></td>
+            <td class="ta-right mono">{{ r.days }}</td>
+            <td class="ta-right mono">{{ (r.expected_sec // 3600) }} h</td>
+            <td class="ta-right mono">{{ (r.reported_sec // 3600) }} h {{ (r.reported_sec % 3600) // 60 }} m</td>
+            <td class="ta-right mono">
+              {% if r.coverage_pct is null %}<span class="muted">sin jornada</span>
+              {% else %}
+                <span class="badge {{ r.coverage_pct >= 80 ? 'badge-ok' : (r.coverage_pct >= 50 ? 'badge-alert' : 'badge-crit') }}">
+                  <span class="dot"></span>{{ r.coverage_pct }}%
+                </span>
+              {% endif %}
+            </td>
+            <td class="ta-right mono">{{ r.trips }}</td>
+            <td class="ta-right mono">{{ r.km }}</td>
+            <td class="ta-right mono">
+              {{ r.missions_done }}/{{ r.missions }}{% if r.missions_miss %} <span class="badge-crit">({{ r.missions_miss }} sin cumplir)</span>{% endif %}
+            </td>
+            <td class="ta-right mono">{{ r.off_post }}</td>
+            <td class="ta-right mono">{{ r.no_movement }}</td>
+            <td class="ta-right mono">{{ r.panic ? r.panic : '—' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="11" class="muted">Sin personas con actividad en el período.</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if rows is not empty %}
+        <tfoot><tr class="report-total">
+          <td><strong>Total</strong></td>
+          <td class="ta-right mono">—</td>
+          <td class="ta-right mono">{{ (totals.expected_sec // 3600) }} h</td>
+          <td class="ta-right mono">{{ (totals.reported_sec // 3600) }} h</td>
+          <td class="ta-right mono">{{ totals.coverage_pct is null ? '—' : totals.coverage_pct ~ '%' }}</td>
+          <td class="ta-right mono">{{ totals.trips }}</td>
+          <td class="ta-right mono">{{ totals.km }}</td>
+          <td class="ta-right mono">{{ totals.missions_done }}/{{ totals.missions }}</td>
+          <td class="ta-right mono">{{ totals.off_post }}</td>
+          <td class="ta-right mono">{{ totals.no_movement }}</td>
+          <td class="ta-right mono">{{ totals.panic }}</td>
+        </tr></tfoot>
+      {% endif %}
     </table>
   {% else %}
     <table class="data-table">

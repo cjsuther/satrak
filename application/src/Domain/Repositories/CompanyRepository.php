@@ -62,14 +62,19 @@ final class CompanyRepository extends BaseRepository
     public function create(array $data): int
     {
         $stmt = $this->db->prepare(
-            'INSERT INTO companies (name, slug, status, device_quota, timezone)
-             VALUES (:name, :slug, :status, :device_quota, :timezone)'
+            'INSERT INTO companies (name, slug, status, device_quota, person_quota, modules,
+                                    emergency_email, timezone)
+             VALUES (:name, :slug, :status, :device_quota, :person_quota, :modules,
+                     :emergency_email, :timezone)'
         );
         $stmt->execute([
             ':name'         => $data['name'],
             ':slug'         => $data['slug'],
             ':status'       => $data['status'] ?? 'active',
             ':device_quota' => (int) ($data['device_quota'] ?? 0),
+            ':person_quota' => (int) ($data['person_quota'] ?? 0),
+            ':modules'      => self::modulesValue($data['modules'] ?? null),
+            ':emergency_email' => trim((string) ($data['emergency_email'] ?? '')) ?: null,
             ':timezone'     => $data['timezone'] ?? 'America/Argentina/Buenos_Aires',
         ]);
 
@@ -81,16 +86,39 @@ final class CompanyRepository extends BaseRepository
     {
         $stmt = $this->db->prepare(
             'UPDATE companies SET name=:name, slug=:slug, status=:status,
-             device_quota=:device_quota, timezone=:timezone WHERE id=:id'
+             device_quota=:device_quota, person_quota=:person_quota, modules=:modules,
+             emergency_email=:emergency_email, timezone=:timezone WHERE id=:id'
         );
         $stmt->execute([
             ':name'         => $data['name'],
             ':slug'         => $data['slug'],
             ':status'       => $data['status'],
             ':device_quota' => (int) $data['device_quota'],
+            ':person_quota' => (int) ($data['person_quota'] ?? 0),
+            ':modules'      => self::modulesValue($data['modules'] ?? null),
+            ':emergency_email' => trim((string) ($data['emergency_email'] ?? '')) ?: null,
             ':timezone'     => $data['timezone'],
             ':id'           => $id,
         ]);
+    }
+
+    /**
+     * Normaliza los módulos contratados al formato de la columna SET.
+     * Una empresa sin ningún módulo no podría operar: cae a 'fleet'.
+     *
+     * @param string|string[]|null $modules
+     */
+    private static function modulesValue(string|array|null $modules): string
+    {
+        if (is_string($modules)) {
+            $modules = $modules === '' ? [] : explode(',', $modules);
+        }
+        $valid = array_values(array_intersect(
+            array_map('trim', $modules ?? []),
+            ['fleet', 'people']
+        ));
+
+        return $valid !== [] ? implode(',', $valid) : 'fleet';
     }
 
     /**

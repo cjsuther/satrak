@@ -13,6 +13,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Satrak\Application\Controllers\AlertController;
 use Satrak\Application\Controllers\AlertRuleController;
+use Satrak\Application\Controllers\AppApiController;
 use Satrak\Application\Controllers\AssignmentController;
 use Satrak\Application\Controllers\AuditController;
 use Satrak\Application\Controllers\AuthController;
@@ -24,27 +25,34 @@ use Satrak\Application\Controllers\DriverController;
 use Satrak\Application\Controllers\DriverPortalController;
 use Satrak\Application\Controllers\GeofenceController;
 use Satrak\Application\Controllers\MapController;
+use Satrak\Application\Controllers\MissionController;
 use Satrak\Application\Controllers\NotificationController;
+use Satrak\Application\Controllers\PersonController;
+use Satrak\Application\Controllers\PersonPortalController;
+use Satrak\Application\Controllers\PersonScheduleController;
 use Satrak\Application\Controllers\ProfileController;
 use Satrak\Application\Controllers\ReportController;
 use Satrak\Application\Controllers\SuperAdminController;
 use Satrak\Application\Controllers\UserController;
 use Satrak\Application\Controllers\VehicleController;
+use Satrak\Application\Middleware\AppAuthMiddleware;
 use Satrak\Application\Middleware\AuthMiddleware;
 use Satrak\Application\Middleware\RbacMiddleware;
 use Satrak\Application\Middleware\RequireCompanyContextMiddleware;
 use Satrak\Application\Middleware\TenantMiddleware;
 use Satrak\Application\Middleware\ViewGlobalsMiddleware;
 use Satrak\Application\Support\Auth;
+use Satrak\Application\Support\Entitlements;
 use Satrak\Application\Support\Perm;
 use Satrak\Application\Support\Rbac;
 use Slim\Routing\RouteCollectorProxy;
 
-/** Fábrica de middleware RBAC por permiso. */
+/** Fábrica de middleware RBAC por permiso (rol + módulo contratado). */
 $requires = fn (string $permission): RbacMiddleware => new RbacMiddleware(
     $container->get(Auth::class),
     $container->get(Rbac::class),
-    $permission
+    $permission,
+    $container->get(Entitlements::class)
 );
 
 // --- Raíz + healthcheck (públicas) -----------------------------------------
@@ -73,6 +81,22 @@ $app->get('/forgot', [AuthController::class, 'showForgot']);
 $app->post('/forgot', [AuthController::class, 'sendForgot']);
 $app->get('/reset', [AuthController::class, 'showReset']);
 $app->post('/reset', [AuthController::class, 'doReset']);
+
+// --- API de la app móvil ----------------------------------------------------
+// Stateless (Bearer), sin sesión web ni CSRF. El login es público; el resto pasa
+// por AppAuthMiddleware, que inyecta person_id / company_id / device_id.
+$app->post('/api/app/login', [AppApiController::class, 'login']);
+
+$app->group('/api/app', function (RouteCollectorProxy $api) {
+    $api->post('/logout', [AppApiController::class, 'logout']);
+    $api->get('/sync', [AppApiController::class, 'sync']);
+    $api->post('/positions', [AppApiController::class, 'positions']);
+    $api->post('/panic', [AppApiController::class, 'panic']);
+    $api->post('/events', [AppApiController::class, 'events']);
+    $api->post('/heartbeat', [AppApiController::class, 'heartbeat']);
+    $api->post('/missions/{id:[0-9]+}/start', [AppApiController::class, 'startMission']);
+    $api->post('/missions/{id:[0-9]+}/arrive', [AppApiController::class, 'arriveMission']);
+})->add($container->get(AppAuthMiddleware::class));
 
 // --- Grupo autenticado ------------------------------------------------------
 $app->group('', function (RouteCollectorProxy $group) use ($requires, $container) {
@@ -167,6 +191,15 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
             $p->post('/perfil', [DriverPortalController::class, 'updateProfile']);
         })->add($requires(Perm::DRIVER_PORTAL));
 
+        // Portal de la persona: scope estricto al person_id del usuario.
+        $g->group('/mi', function (RouteCollectorProxy $mi) {
+            $mi->get('', [PersonPortalController::class, 'today']);
+            $mi->get('/ubicacion', [PersonPortalController::class, 'location']);
+            $mi->get('/misiones', [PersonPortalController::class, 'missions']);
+            $mi->get('/perfil', [PersonPortalController::class, 'profile']);
+            $mi->post('/perfil', [PersonPortalController::class, 'updateProfile']);
+        })->add($requires(Perm::PERSON_PORTAL));
+
         // Usuarios.
         $g->group('/usuarios', function (RouteCollectorProxy $u) {
             $u->get('', [UserController::class, 'index']);
@@ -178,13 +211,41 @@ $app->group('', function (RouteCollectorProxy $group) use ($requires, $container
             $u->post('/{id:[0-9]+}/estado', [UserController::class, 'toggleStatus']);
         })->add($requires(Perm::USERS_MANAGE));
 
-        // Conductores, Vehículos, Dispositivos (FLEET_MANAGE).
+        // Personas: el maestro del módulo de personal (incluye el perfil de
+        // conducción de cada persona). Módulo 'people'.
+        $g->group('/personas', function (RouteCollectorProxy $pe) {
+            $pe->get('', [PersonController::class, 'index']);
+            $pe->get('/nueva', [PersonController::class, 'createForm']);
+            $pe->post('', [PersonController::class, 'store']);
+            $pe->get('/{id:[0-9]+}/editar', [PersonController::class, 'editForm']);
+            $pe->post('/{id:[0-9]+}', [PersonController::class, 'update']);
+            $pe->post('/{id:[0-9]+}/estado', [PersonController::class, 'toggleStatus']);
+
+            // Jornada, excepciones, puesto y sesión de la app.
+            $pe->get('/{id:[0-9]+}/jornada', [PersonScheduleController::class, 'show']);
+            $pe->post('/{id:[0-9]+}/jornada', [PersonScheduleController::class, 'saveShifts']);
+            $pe->post('/{id:[0-9]+}/jornada/excepciones', [PersonScheduleController::class, 'addException']);
+            $pe->post('/{id:[0-9]+}/jornada/excepciones/{exc:[0-9]+}/eliminar', [PersonScheduleController::class, 'deleteException']);
+            $pe->post('/{id:[0-9]+}/jornada/puesto', [PersonScheduleController::class, 'savePost']);
+            $pe->post('/{id:[0-9]+}/jornada/sesion/revocar', [PersonScheduleController::class, 'revokeSession']);
+        })->add($requires(Perm::PEOPLE_MANAGE));
+
+        // Misiones: las carga el operador; la persona sólo inicia y marca llegada.
+        $g->group('/misiones', function (RouteCollectorProxy $ms) {
+            $ms->get('', [MissionController::class, 'index']);
+            $ms->get('/nueva', [MissionController::class, 'createForm']);
+            $ms->post('', [MissionController::class, 'store']);
+            $ms->get('/{id:[0-9]+}/editar', [MissionController::class, 'editForm']);
+            $ms->post('/{id:[0-9]+}', [MissionController::class, 'update']);
+            $ms->post('/{id:[0-9]+}/estado', [MissionController::class, 'setStatus']);
+        })->add($requires(Perm::MISSIONS_MANAGE));
+
+        // Conductores: listado del perfil de conducción. El alta y la edición
+        // viven en el formulario de la persona (la persona es el maestro).
         $g->group('/conductores', function (RouteCollectorProxy $c) {
             $c->get('', [DriverController::class, 'index']);
             $c->get('/nuevo', [DriverController::class, 'createForm']);
-            $c->post('', [DriverController::class, 'store']);
             $c->get('/{id:[0-9]+}/editar', [DriverController::class, 'editForm']);
-            $c->post('/{id:[0-9]+}', [DriverController::class, 'update']);
             $c->post('/{id:[0-9]+}/estado', [DriverController::class, 'toggleStatus']);
         })->add($requires(Perm::FLEET_MANAGE));
 

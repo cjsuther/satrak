@@ -13,6 +13,14 @@
       <a class="nav-item {{ current_path starts with '/portal/actividad' or current_path == '/portal' ? 'is-active' : '' }}" href="/portal/actividad"><span class="nav-ico">↻</span> Mi actividad</a>
       <a class="nav-item {{ current_path starts with '/portal/ubicacion' ? 'is-active' : '' }}" href="/portal/ubicacion"><span class="nav-ico">◈</span> Mi última posición</a>
       <a class="nav-item {{ current_path starts with '/portal/perfil' ? 'is-active' : '' }}" href="/portal/perfil"><span class="nav-ico">☉</span> Mi perfil</a>
+    {% elseif current_user.role == 'person' %}
+      {# Portal de la persona: acotado a lo propio. Igual que el del conductor,
+         se decide por ROL y no por can(), porque el super admin tiene '*'. #}
+      <span class="nav-section">Mi portal</span>
+      <a class="nav-item {{ current_path == '/mi' ? 'is-active' : '' }}" href="/mi"><span class="nav-ico">◎</span> Mi día</a>
+      <a class="nav-item {{ current_path starts with '/mi/ubicacion' ? 'is-active' : '' }}" href="/mi/ubicacion"><span class="nav-ico">◈</span> Mi ubicación</a>
+      <a class="nav-item {{ current_path starts with '/mi/misiones' ? 'is-active' : '' }}" href="/mi/misiones"><span class="nav-ico">➤</span> Mis misiones</a>
+      <a class="nav-item {{ current_path starts with '/mi/perfil' ? 'is-active' : '' }}" href="/mi/perfil"><span class="nav-ico">☉</span> Mi perfil</a>
     {% else %}
     <a class="nav-item {{ current_path == '/dashboard' ? 'is-active' : '' }}" href="/dashboard">
       <span class="nav-ico">◎</span> Dashboard
@@ -46,8 +54,14 @@
       <a class="nav-item {{ current_path starts with '/reportes' ? 'is-active' : '' }}" href="/reportes"><span class="nav-ico">▤</span> Reportes</a>
     {% endif %}
 
-    {% if can('fleet.manage') or can('users.manage') %}
+    {% if can('fleet.manage') or can('users.manage') or can('people.manage') or can('missions.manage') %}
       <span class="nav-section">Gestión</span>
+      {% if can('people.manage') %}
+        <a class="nav-item {{ current_path starts with '/personas' ? 'is-active' : '' }}" href="/personas"><span class="nav-ico">☺</span> Personas</a>
+      {% endif %}
+      {% if can('missions.manage') %}
+        <a class="nav-item {{ current_path starts with '/misiones' ? 'is-active' : '' }}" href="/misiones"><span class="nav-ico">➤</span> Misiones</a>
+      {% endif %}
       {% if can('fleet.manage') %}
         <a class="nav-item {{ current_path starts with '/vehiculos' ? 'is-active' : '' }}" href="/vehiculos"><span class="nav-ico">⛟</span> Vehículos</a>
         <a class="nav-item {{ current_path starts with '/dispositivos' ? 'is-active' : '' }}" href="/dispositivos"><span class="nav-ico">▦</span> Dispositivos</a>

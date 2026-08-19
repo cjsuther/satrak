@@ -1,0 +1,40 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Mis misiones{% endblock %}
+
+{% set missionLabels = {
+  'pending': 'Pendiente', 'in_progress': 'En curso', 'completed': 'Cumplida',
+  'missed': 'No cumplida', 'cancelled': 'Cancelada'
+} %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow">Mi portal</span><h1>Mis misiones</h1>
+  <p class="muted">Las próximas dos semanas. Se inician y se cierran desde la app.</p></div>
+</div>
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr><th>Fecha</th><th>Destino</th><th>Ventana</th><th>Estado</th><th>Real</th></tr></thead>
+    <tbody>
+      {% for m in missions %}
+        <tr>
+          <td class="mono">{{ m.scheduled_start|slice(0,10) }}</td>
+          <td><strong>{{ m.dest_name }}</strong>{% if m.notes %}<br><small class="muted">{{ m.notes }}</small>{% endif %}</td>
+          <td class="mono">{{ m.scheduled_start|slice(11,5) }} – {{ m.scheduled_end|slice(11,5) }}</td>
+          <td>
+            <span class="badge {{ m.status == 'completed' ? 'badge-ok' : (m.status == 'missed' ? 'badge-crit' : 'badge-off') }}">
+              <span class="dot"></span>{{ missionLabels[m.status] ?? m.status }}
+            </span>
+          </td>
+          <td class="mono muted">
+            {%- if m.started_at %}{{ m.started_at|slice(11,5) }}{% else %}—{% endif -%}
+            {%- if m.arrived_at %} → {{ m.arrived_at|slice(11,5) }}{% endif -%}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">No tenés misiones asignadas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

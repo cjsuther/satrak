@@ -80,6 +80,46 @@ final class DeviceRepository extends BaseRepository
         ]);
     }
 
+    /** @return array<string,mixed>|null */
+    public function findByImei(string $imei): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM devices WHERE imei = ? LIMIT 1');
+        $stmt->execute([trim($imei)]);
+        $row = $stmt->fetch();
+
+        return $row ?: null;
+    }
+
+    /**
+     * Alta (o reactivación) del "dispositivo" que representa una instalación de
+     * la app móvil. El `install_id` que genera la app ocupa el lugar del IMEI:
+     * es el identificador único del equipo dentro del sistema.
+     *
+     * `has_pin = 0`: el equipo es de la persona, no se comparte, no hay PIN.
+     */
+    public function upsertAppDevice(int $companyId, string $installId, ?string $label, ?string $model): int
+    {
+        $existing = $this->findByImei($installId);
+
+        if ($existing !== null) {
+            $stmt = $this->db->prepare(
+                "UPDATE devices SET company_id = ?, label = ?, model = ?, kind = 'person',
+                        source = 'app', status = 'active' WHERE id = ?"
+            );
+            $stmt->execute([$companyId, $label, $model, (int) $existing['id']]);
+
+            return (int) $existing['id'];
+        }
+
+        $stmt = $this->db->prepare(
+            "INSERT INTO devices (company_id, kind, source, imei, label, model, has_pin, status)
+             VALUES (?, 'person', 'app', ?, ?, ?, 0, 'active')"
+        );
+        $stmt->execute([$companyId, trim($installId), $label, $model]);
+
+        return (int) $this->db->lastInsertId();
+    }
+
     /** Dispositivos activos de la empresa (para selects de asignación). */
     public function activeForCompany(int $companyId): array
     {
@@ -100,7 +140,7 @@ final class DeviceRepository extends BaseRepository
     public function allActive(): array
     {
         return $this->db
-            ->query("SELECT id, company_id, has_pin FROM devices WHERE status = 'active' ORDER BY id")
+            ->query("SELECT id, company_id, has_pin, kind, source FROM devices WHERE status = 'active' ORDER BY id")
             ->fetchAll();
     }
 

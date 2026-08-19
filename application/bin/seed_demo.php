@@ -173,7 +173,7 @@ function wipeCompany(PDO $pdo, int $companyId): void
     $pdo->beginTransaction();
     try {
         // Dependientes de dispositivos / geocercas.
-        $pdo->prepare('DELETE FROM geofence_vehicles WHERE geofence_id IN (SELECT id FROM geofences WHERE company_id = ?)')->execute([$companyId]);
+        $pdo->prepare('DELETE FROM geofence_targets WHERE geofence_id IN (SELECT id FROM geofences WHERE company_id = ?)')->execute([$companyId]);
         foreach ([
             'positions', 'device_events', 'trips', 'processor_state', 'notifications', 'alerts',
             'alert_rules', 'geofences', 'device_driver_links', 'device_vehicle_assignments',

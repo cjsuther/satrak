@@ -20,14 +20,27 @@ use Slim\Views\Twig;
  */
 final class AlertRuleController
 {
-    private const TYPES = ['speed', 'geofence_enter', 'geofence_exit', 'idle', 'offline', 'sos'];
+    private const TYPES = [
+        // Flota
+        'speed', 'geofence_enter', 'geofence_exit', 'idle', 'offline', 'sos',
+        // Personal
+        'panic', 'no_movement', 'off_post', 'mission_late', 'mission_missed',
+        'low_battery', 'app_offline',
+    ];
     private const LABELS = [
         'speed'          => 'Exceso de velocidad',
         'geofence_enter' => 'Entrada a geocerca',
         'geofence_exit'  => 'Salida de geocerca',
         'idle'           => 'Ralentí',
         'offline'        => 'Sin señal (offline)',
-        'sos'            => 'SOS / pánico',
+        'sos'            => 'SOS / pánico (equipo)',
+        'panic'          => 'Botón de pánico (app)',
+        'no_movement'    => 'Persona sin movimiento',
+        'off_post'       => 'Fuera de puesto',
+        'mission_late'   => 'Misión demorada',
+        'mission_missed' => 'Misión no iniciada',
+        'low_battery'    => 'Batería baja',
+        'app_offline'    => 'App sin reportar',
     ];
 
     public function __construct(
@@ -165,11 +178,14 @@ final class AlertRuleController
     private function paramsFor(string $type, array $d): ?array
     {
         return match ($type) {
-            'speed'          => ['max_kmh' => max(1, (int) ($d['max_kmh'] ?? 0))],
-            'idle'           => ['minutes' => max(1, (int) ($d['minutes'] ?? 0))],
-            'offline'        => ['minutes' => max(1, (int) ($d['minutes'] ?? 0))],
+            'speed' => ['max_kmh' => max(1, (int) ($d['max_kmh'] ?? 0))],
+            'idle', 'offline', 'no_movement', 'app_offline'
+                    => ['minutes' => max(1, (int) ($d['minutes'] ?? 0))],
+            'low_battery' => ['pct' => max(1, min(100, (int) ($d['pct'] ?? 15)))],
             'geofence_enter', 'geofence_exit' => ['geofence_id' => (int) ($d['geofence_id'] ?? 0)],
-            default          => null, // sos
+            // sos, panic, off_post, mission_*: sin parámetros. La tolerancia de
+            // «fuera de puesto» es del puesto de cada persona, no de la regla.
+            default => null,
         };
     }
 
@@ -216,8 +232,15 @@ final class AlertRuleController
         if ($type === 'speed' && (int) ($d['max_kmh'] ?? 0) <= 0) {
             $errors['max_kmh'] = 'Indicá la velocidad máxima (km/h).';
         }
-        if (in_array($type, ['idle', 'offline'], true) && (int) ($d['minutes'] ?? 0) <= 0) {
+        if (in_array($type, ['idle', 'offline', 'no_movement', 'app_offline'], true)
+            && (int) ($d['minutes'] ?? 0) <= 0) {
             $errors['minutes'] = 'Indicá los minutos.';
+        }
+        if ($type === 'low_battery') {
+            $pct = (int) ($d['pct'] ?? 0);
+            if ($pct < 1 || $pct > 100) {
+                $errors['pct'] = 'Indicá un porcentaje entre 1 y 100.';
+            }
         }
         if (in_array($type, ['geofence_enter', 'geofence_exit'], true)) {
             $gid = (int) ($d['geofence_id'] ?? 0);

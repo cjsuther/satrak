@@ -5,12 +5,13 @@
  * Corre por cron CLI cada 1 minuto. Es idempotente: procesa sólo las posiciones
  * y eventos nuevos de cada dispositivo (cursor en `processor_state`).
  *
- * En esta fase (4) hace:
+ * Hace:
  *   1. Resolver `driver_id` de cada posición nueva manteniendo el PIN vigente (§8).
  *   2. Construir / cerrar viajes (`trips`); un cambio de PIN parte el viaje.
  *   3. Actualizar `devices.last_position_id` / `last_seen_at`.
- *
- * (El motor de alertas se suma en la Fase 6.)
+ *   4. Motor de alertas (§12) sobre posiciones y eventos.
+ *   5. Módulo de personas: recorridos y alertas de personal (fuera de puesto,
+ *      sin movimiento, pánico) y cierre de misiones vencidas.
  *
  * Uso:
  *   php bin/processor.php            # procesa todo lo pendiente
@@ -23,11 +24,16 @@ use Satrak\Domain\Repositories\AlertRepository;
 use Satrak\Domain\Repositories\AlertRuleRepository;
 use Satrak\Domain\Repositories\AssignmentRepository;
 use Satrak\Domain\Repositories\DeviceDriverLinkRepository;
+use Satrak\Domain\Repositories\CompanyRepository;
 use Satrak\Domain\Repositories\DeviceEventRepository;
+use Satrak\Domain\Repositories\DevicePersonAssignmentRepository;
 use Satrak\Domain\Repositories\DeviceRepository;
 use Satrak\Domain\Repositories\DriverRepository;
 use Satrak\Domain\Repositories\GeofenceRepository;
+use Satrak\Domain\Repositories\MissionRepository;
 use Satrak\Domain\Repositories\NotificationRepository;
+use Satrak\Domain\Repositories\PersonPostRepository;
+use Satrak\Domain\Repositories\PersonRepository;
 use Satrak\Domain\Repositories\PositionRepository;
 use Satrak\Domain\Repositories\ProcessorStateRepository;
 use Satrak\Domain\Repositories\TripRepository;
@@ -45,6 +51,7 @@ $opts  = getopt('', ['quiet']);
 $quiet = isset($opts['quiet']);
 
 $stopSeconds = (int) ($config['tracking']['trip_stop_minutes'] ?? 5) * 60;
+$people      = $config['people'] ?? [];
 
 // --- Cableado de repositorios y servicios (sin contenedor: CLI con PDO directo) ---
 $deviceRepo   = new DeviceRepository($pdo);
@@ -55,6 +62,9 @@ $eventRepo    = new DeviceEventRepository($pdo);
 $tripRepo     = new TripRepository($pdo);
 $stateRepo    = new ProcessorStateRepository($pdo);
 $assignRepo   = new AssignmentRepository($pdo);
+$personAssign = new DevicePersonAssignmentRepository($pdo);
+$postRepo     = new PersonPostRepository($pdo);
+$missionRepo  = new MissionRepository($pdo);
 
 $resolver = new PinResolver($driverRepo, $linkRepo);
 
@@ -69,6 +79,11 @@ $alertEngine = new AlertEngine(
     new Mailer($config['smtp'], dirname(__DIR__) . '/storage/logs'),
     (int) ($config['tracking']['offline_minutes'] ?? 30),
     (int) ($config['tracking']['idle_minutes'] ?? 10),
+    new PersonRepository($pdo),
+    new CompanyRepository($pdo),
+    (int) ($people['no_movement_minutes'] ?? 15),
+    (int) ($people['min_step_m'] ?? 25),
+    (int) ($people['app_offline_minutes'] ?? 15),
 );
 
 $builder = new TripBuilder(
@@ -81,6 +96,13 @@ $builder = new TripBuilder(
     $resolver,
     $stopSeconds,
     $alertEngine,
+    $personAssign,
+    $postRepo,
+    $missionRepo,
+    (int) ($people['person_stop_minutes'] ?? 10) * 60,
+    (int) ($people['walk_speed_kmh'] ?? 2),
+    (int) ($people['min_step_m'] ?? 25),
+    (int) ($people['max_accuracy_m'] ?? 100),
 );
 
 $started = microtime(true);
@@ -115,21 +137,37 @@ foreach ($devices as $device) {
 }
 
 // --- Chequeo periódico de offline (no depende de posiciones nuevas) ---------
+// Flota: "el equipo se cayó". Personal: "la app dejó de reportar". Son alertas
+// distintas porque el destinatario hace cosas distintas con cada una.
 $offlineRows = $pdo->query(
-    "SELECT d.id, d.company_id, d.last_seen_at,
+    "SELECT d.id, d.company_id, d.kind, d.last_seen_at,
             (SELECT a.vehicle_id FROM device_vehicle_assignments a
-             WHERE a.device_id = d.id AND a.unassigned_at IS NULL LIMIT 1) AS vehicle_id
+             WHERE a.device_id = d.id AND a.unassigned_at IS NULL LIMIT 1) AS vehicle_id,
+            (SELECT a.person_id FROM device_person_assignments a
+             WHERE a.device_id = d.id AND a.unassigned_at IS NULL LIMIT 1) AS person_id
      FROM devices d WHERE d.status = 'active'"
 )->fetchAll();
+
 foreach ($offlineRows as $d) {
     $pdo->beginTransaction();
     try {
-        $alertEngine->checkOffline([
-            'id'           => (int) $d['id'],
-            'company_id'   => (int) $d['company_id'],
-            'last_seen_at' => $d['last_seen_at'],
-            'vehicle_id'   => $d['vehicle_id'] !== null ? (int) $d['vehicle_id'] : null,
-        ]);
+        if (($d['kind'] ?? 'vehicle') === 'person') {
+            if ($d['person_id'] !== null) {
+                $alertEngine->checkAppOffline([
+                    'company_id'   => (int) $d['company_id'],
+                    'device_id'    => (int) $d['id'],
+                    'person_id'    => (int) $d['person_id'],
+                    'last_seen_at' => $d['last_seen_at'],
+                ]);
+            }
+        } else {
+            $alertEngine->checkOffline([
+                'id'           => (int) $d['id'],
+                'company_id'   => (int) $d['company_id'],
+                'last_seen_at' => $d['last_seen_at'],
+                'vehicle_id'   => $d['vehicle_id'] !== null ? (int) $d['vehicle_id'] : null,
+            ]);
+        }
         $pdo->commit();
     } catch (\Throwable $e) {
         $pdo->rollBack();
@@ -137,9 +175,34 @@ foreach ($offlineRows as $d) {
     }
 }
 
+// --- Misiones vencidas -------------------------------------------------------
+// `pending` que nunca arrancó o `in_progress` que no llegó: se avisa y se cierran
+// como no cumplidas para que no queden vivas para siempre.
+$missionsClosed = 0;
+foreach ($missionRepo->overdue() as $mission) {
+    $pdo->beginTransaction();
+    try {
+        $newStatus = $alertEngine->checkMission([
+            'id'             => (int) $mission['id'],
+            'company_id'     => (int) $mission['company_id'],
+            'person_id'      => (int) $mission['person_id'],
+            'status'         => (string) $mission['status'],
+            'scheduled_end'  => (string) $mission['scheduled_end'],
+        ]);
+        $missionRepo->setStatus((int) $mission['id'], $newStatus);
+        $missionsClosed++;
+        $pdo->commit();
+    } catch (\Throwable $e) {
+        $pdo->rollBack();
+        fwrite(STDERR, "ERROR misión {$mission['id']}: {$e->getMessage()}\n");
+    }
+}
+
 $ms = (int) round((microtime(true) - $started) * 1000);
 printf(
-    "Procesador OK · %d dispositivos · %d posiciones · %d eventos · viajes +%d/-%d · %d alertas · %d ms\n",
+    "Procesador OK · %d dispositivos · %d posiciones · %d eventos · viajes +%d/-%d · "
+    . "%d misiones vencidas · %d alertas · %d ms\n",
     count($devices), $totals['positions'], $totals['events'],
-    $totals['trips_opened'], $totals['trips_closed'], $alertEngine->firedCount(), $ms
+    $totals['trips_opened'], $totals['trips_closed'], $missionsClosed,
+    $alertEngine->firedCount(), $ms
 );

@@ -30,6 +30,9 @@ final class Auth
             'role'       => $user['role'],
             'company_id' => $user['company_id'] !== null ? (int) $user['company_id'] : null,
             'driver_id'  => $user['driver_id'] !== null ? (int) $user['driver_id'] : null,
+            'person_id'  => isset($user['person_id']) && $user['person_id'] !== null
+                ? (int) $user['person_id']
+                : null,
         ];
         unset($_SESSION[self::CONTEXT]);
     }
@@ -84,6 +87,12 @@ final class Auth
     public function driverId(): ?int
     {
         return $_SESSION[self::USER]['driver_id'] ?? null;
+    }
+
+    /** Persona asociada al usuario (rol `person`). */
+    public function personId(): ?int
+    {
+        return $_SESSION[self::USER]['person_id'] ?? null;
     }
 
     // --- Contexto de empresa (solo super admin) -----------------------------

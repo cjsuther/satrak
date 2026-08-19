@@ -1,0 +1,137 @@
+{% extends "layouts/app.twig" %}
+{% block title %}{{ mode == 'create' ? 'Nueva persona' : 'Editar persona' }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><span class="eyebrow"><a href="/personas">Personas</a> / {{ mode == 'create' ? 'nueva' : 'editar' }}</span>
+  <h1>{{ mode == 'create' ? 'Nueva persona' : p.first_name ~ ' ' ~ p.last_name }}</h1></div>
+</div>
+
+<form method="post" action="{{ mode == 'create' ? '/personas' : '/personas/' ~ p.id }}" class="card form-card" novalidate>
+  {{ csrf_field() }}
+
+  <div class="form-grid">
+    <label class="field">
+      <span class="field-label">Nombre *</span>
+      <input class="input" name="first_name" value="{{ p.first_name|default('') }}" required autofocus>
+      {% if errors.first_name is defined %}<small class="field-error">{{ errors.first_name }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Apellido *</span>
+      <input class="input" name="last_name" value="{{ p.last_name|default('') }}" required>
+      {% if errors.last_name is defined %}<small class="field-error">{{ errors.last_name }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">DNI (usuario de la app)</span>
+      <input class="input mono" name="dni" value="{{ p.dni|default('') }}">
+      {% if errors.dni is defined %}<small class="field-error">{{ errors.dni }}</small>{% endif %}
+    </label>
+    <label class="field">
+      <span class="field-label">Cargo</span>
+      <input class="input" name="job_title" value="{{ p.job_title|default('') }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Teléfono</span>
+      <input class="input mono" name="phone" value="{{ p.phone|default('') }}">
+    </label>
+    <label class="field">
+      <span class="field-label">Email</span>
+      <input class="input" type="email" name="email" value="{{ p.email|default('') }}">
+      {% if errors.email is defined %}<small class="field-error">{{ errors.email }}</small>{% endif %}
+    </label>
+    {% if mode == 'edit' %}
+      <label class="field">
+        <span class="field-label">Estado</span>
+        <select class="input" name="status">
+          <option value="active" {{ p.status == 'active' ? 'selected' }}>Activo</option>
+          <option value="inactive" {{ p.status == 'inactive' ? 'selected' }}>Inactivo</option>
+        </select>
+      </label>
+    {% endif %}
+  </div>
+
+  {# --- Consentimiento (Ley 25.326) ---------------------------------------- #}
+  <div class="form-section">
+    <span class="eyebrow">Consentimiento</span>
+    <p class="muted">
+      El rastreo de personal requiere el consentimiento informado de la persona.
+      Registrá acá si se obtuvo y con qué respaldo.
+    </p>
+    <div class="form-grid">
+      <label class="field">
+        <span class="field-label">Nota / respaldo</span>
+        <input class="input" name="consent_note" value="{{ p.consent_note|default('') }}"
+               placeholder="Ej: adenda al contrato firmada 12/03">
+      </label>
+    </div>
+    <label class="check-field">
+      <input type="checkbox" name="consent" value="1" {{ p.consent_at ? 'checked' }}>
+      <span>
+        Consentimiento otorgado
+        {% if p.consent_at %}<br><small class="muted">Registrado el {{ p.consent_at }}</small>{% endif %}
+      </span>
+    </label>
+  </div>
+
+  {# --- Acceso a la app móvil ---------------------------------------------- #}
+  <div class="form-section">
+    <span class="eyebrow">Acceso a la app</span>
+    <p class="muted">
+      La persona ingresa a la app con empresa + DNI + esta contraseña. Sólo puede tener
+      una sesión activa: al iniciar en otro teléfono, el anterior se cierra.
+      {% if mode == 'edit' %}Dejá los campos vacíos para no cambiarla.{% endif %}
+    </p>
+    <div class="form-grid">
+      <label class="field">
+        <span class="field-label">Contraseña de la app</span>
+        <input class="input" type="password" name="app_password" autocomplete="new-password">
+        {% if errors.app_password is defined %}<small class="field-error">{{ errors.app_password }}</small>{% endif %}
+      </label>
+      <label class="field">
+        <span class="field-label">Repetir contraseña</span>
+        <input class="input" type="password" name="app_password_confirm" autocomplete="new-password">
+        {% if errors.app_password_confirm is defined %}<small class="field-error">{{ errors.app_password_confirm }}</small>{% endif %}
+      </label>
+    </div>
+    {% if mode == 'edit' and p.password_hash %}
+      <label class="check-field">
+        <input type="checkbox" name="clear_app_password" value="1">
+        <span>Quitar el acceso a la app</span>
+      </label>
+    {% endif %}
+  </div>
+
+  {# --- Perfil de conducción ----------------------------------------------- #}
+  <div class="form-section">
+    <span class="eyebrow">Perfil de conductor</span>
+    <p class="muted">
+      Si además maneja vehículos de la flota, activá el perfil para asignarle licencia y PIN.
+      El PIN es lo que atribuye los viajes de un dispositivo compartido.
+    </p>
+    <div class="form-grid">
+      <label class="field">
+        <span class="field-label">Licencia</span>
+        <input class="input mono" name="license_number" value="{{ driver.license_number|default('') }}">
+      </label>
+      <label class="field">
+        <span class="field-label">PIN ({{ pin_min }}–{{ pin_max }}, alfanumérico, único)</span>
+        <input class="input mono" name="pin" value="{{ driver.pin|default('') }}" maxlength="{{ pin_max }}" autocomplete="off">
+        {% if errors.pin is defined %}<small class="field-error">{{ errors.pin }}</small>{% endif %}
+      </label>
+    </div>
+    <label class="check-field">
+      <input type="checkbox" name="is_driver" value="1" {{ is_driver ? 'checked' }}>
+      <span>
+        Es conductor
+        {% if driver %}<br><small class="muted">Al desactivarlo no se borra el conductor (tiene viajes y
+        alertas históricas): se marca inactivo y se le quita el PIN.</small>{% endif %}
+      </span>
+    </label>
+  </div>
+
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="/personas">Cancelar</a>
+    <button class="btn btn-primary" type="submit">{{ mode == 'create' ? 'Crear persona' : 'Guardar cambios' }}</button>
+  </div>
+</form>
+{% endblock %}

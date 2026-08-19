@@ -34,11 +34,16 @@
 
   // Mostrar/ocultar el campo "conductor asociado" según el rol elegido.
   document.querySelectorAll('[data-role-select]').forEach(function (sel) {
-    var field = document.querySelector('[data-driver-field]');
-    if (!field) return;
+    var driverField = document.querySelector('[data-driver-field]');
+    var personField = document.querySelector('[data-person-field]');
+    if (!driverField && !personField) return;
+    var toggle = function (el, on) {
+      if (!el) return;
+      if (on) { el.removeAttribute('hidden'); } else { el.setAttribute('hidden', ''); }
+    };
     var sync = function () {
-      if (sel.value === 'driver') { field.removeAttribute('hidden'); }
-      else { field.setAttribute('hidden', ''); }
+      toggle(driverField, sel.value === 'driver');
+      toggle(personField, sel.value === 'person');
     };
     sel.addEventListener('change', sync);
     sync();
@@ -87,7 +92,10 @@
     var sel = document.querySelector('[data-rule-type]');
     if (!sel) return;
     var map = { speed: ['speed'], idle: ['minutes'], offline: ['minutes'],
-                geofence_enter: ['geofence_id'], geofence_exit: ['geofence_id'], sos: [] };
+                geofence_enter: ['geofence_id'], geofence_exit: ['geofence_id'], sos: [],
+                // Personal
+                panic: [], off_post: [], mission_late: [], mission_missed: [],
+                no_movement: ['minutes'], app_offline: ['minutes'], low_battery: ['pct'] };
     function sync() {
       var show = map[sel.value] || [];
       document.querySelectorAll('[data-param]').forEach(function (el) {

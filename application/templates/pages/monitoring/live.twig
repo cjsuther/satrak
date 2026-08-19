@@ -20,12 +20,22 @@
 <div class="map-layout card">
   <aside class="map-panel">
     <div class="map-panel-head">
-      <input type="search" class="input" placeholder="Buscar patente / equipo…" data-unit-search aria-label="Buscar unidad">
+      <input type="search" class="input" placeholder="Buscar patente / persona…" data-unit-search aria-label="Buscar unidad">
+      {% if can('monitoring.view') and can('people.monitor') %}
+        <div class="map-filters" role="group" aria-label="Filtrar por tipo de unidad">
+          <button type="button" class="chip is-active" data-kind-filter="all">Todas</button>
+          <button type="button" class="chip" data-kind-filter="vehicle">Vehículos</button>
+          <button type="button" class="chip" data-kind-filter="person">Personas</button>
+        </div>
+      {% endif %}
       <div class="map-filters" role="group" aria-label="Filtrar por estado">
-        <button type="button" class="chip is-active" data-filter="all">Todas</button>
+        <button type="button" class="chip is-active" data-filter="all">Todos los estados</button>
         <button type="button" class="chip" data-filter="movimiento">En movimiento</button>
         <button type="button" class="chip" data-filter="detenido">Detenidas</button>
-        <button type="button" class="chip" data-filter="offline">Offline</button>
+        {% if can('people.monitor') %}
+          <button type="button" class="chip" data-filter="fuera_de_puesto">Fuera de puesto</button>
+        {% endif %}
+        <button type="button" class="chip" data-filter="offline">Sin señal</button>
       </div>
     </div>
     <ul class="unit-list" data-unit-list>

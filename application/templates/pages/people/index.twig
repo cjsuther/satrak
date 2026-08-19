@@ -1,0 +1,74 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Personas{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Gestión</span><h1>Personas</h1>
+    <p class="muted">Cupo: {{ count }}/{{ quota }} personas.</p>
+  </div>
+  {% if count < quota %}
+    <a class="btn btn-primary" href="/personas/nueva">+ Nueva persona</a>
+  {% else %}
+    <span class="badge badge-off" title="Ampliá el cupo de la empresa">Cupo completo</span>
+  {% endif %}
+</div>
+
+{% include 'partials/pagination.twig' with {base: '/personas'} %}
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr>
+      <th>Apellido y nombre</th><th>DNI</th><th>Cargo</th><th>App</th><th>Conductor</th>
+      <th>Consentimiento</th><th>Estado</th><th class="ta-right">Acciones</th>
+    </tr></thead>
+    <tbody>
+      {% for p in page.rows %}
+        <tr>
+          <td><strong>{{ p.last_name }}, {{ p.first_name }}</strong></td>
+          <td class="mono">{{ p.dni ?? '—' }}</td>
+          <td>{{ p.job_title ?? '—' }}</td>
+          <td>
+            {% if p.has_app_password %}
+              <span class="badge badge-ok"><span class="dot"></span> con clave</span>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if p.driver_id %}
+              <span class="badge badge-ok"><span class="dot"></span> PIN {{ p.driver_pin ?? '—' }}</span>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if p.consent_at %}
+              <span class="mono" title="Consentimiento registrado">{{ p.consent_at|slice(0, 10) }}</span>
+            {% else %}
+              <span class="badge badge-off" title="Sin consentimiento registrado (Ley 25.326)">falta</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge {{ p.status == 'active' ? 'badge-ok' : 'badge-off' }}">
+              <span class="dot"></span> {{ p.status }}
+            </span>
+          </td>
+          <td class="ta-right actions">
+            <a class="btn btn-secondary btn-sm" href="/personas/{{ p.id }}/editar">Editar</a>
+            <a class="btn btn-secondary btn-sm" href="/personas/{{ p.id }}/jornada">Jornada</a>
+            <a class="btn btn-secondary btn-sm" href="/usuarios/nuevo?person_id={{ p.id }}" title="Crear usuario de portal">+ Portal</a>
+            <form method="post" action="/personas/{{ p.id }}/estado" class="inline-form"
+                  data-confirm="¿{{ p.status == 'active' ? 'Desactivar' : 'Activar' }} a {{ p.first_name }}?">
+              {{ csrf_field() }}
+              <button class="btn btn-secondary btn-sm" type="submit">{{ p.status == 'active' ? 'Desactivar' : 'Activar' }}</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" class="muted">No hay personas todavía.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

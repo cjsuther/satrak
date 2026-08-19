@@ -7,23 +7,26 @@ namespace Satrak\Application\Controllers;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Satrak\Domain\Repositories\DriverRepository;
+use Satrak\Domain\Repositories\PersonRepository;
 use Satrak\Domain\Repositories\VehicleRepository;
 use Satrak\Domain\Services\ReportService;
 use Slim\Views\Twig;
 
 /**
- * Reportes (§13): por vehículo, por conductor (incluye "no identificado") y de
- * alertas; con filtros por fecha/vehículo/conductor y exportación a CSV.
+ * Reportes (§13): por vehículo, por conductor (incluye "no identificado"), por
+ * persona (módulo de personal) y de alertas; con filtros por fecha/entidad y
+ * exportación a CSV.
  */
 final class ReportController
 {
-    private const KINDS = ['vehicle', 'driver', 'alerts'];
+    private const KINDS = ['vehicle', 'driver', 'person', 'alerts'];
 
     public function __construct(
         private Twig $twig,
         private ReportService $reports,
         private VehicleRepository $vehicles,
         private DriverRepository $drivers,
+        private PersonRepository $people,
     ) {
     }
 
@@ -36,8 +39,9 @@ final class ReportController
 
         $vehicleId = !empty($q['vehicle_id']) ? (int) $q['vehicle_id'] : null;
         $driverId = !empty($q['driver_id']) ? (int) $q['driver_id'] : null;
+        $personId = !empty($q['person_id']) ? (int) $q['person_id'] : null;
 
-        $rows = $this->rowsFor($kind, $companyId, $from, $to, $q, $vehicleId, $driverId);
+        $rows = $this->rowsFor($kind, $companyId, $from, $to, $q, $vehicleId, $driverId, $personId);
 
         return $this->twig->render($response, 'pages/reports/index.twig', [
             'kind'       => $kind,
@@ -46,11 +50,13 @@ final class ReportController
             'to'         => $to,
             'vehicle_id' => $vehicleId,
             'driver_id'  => $driverId,
+            'person_id'  => $personId,
             'type'       => $q['type'] ?? '',
             'severity'   => $q['severity'] ?? '',
             'status'     => $q['status'] ?? '',
             'vehicles'   => $this->vehicles->activeForCompany($companyId),
             'drivers'    => $this->drivers->activeForCompany($companyId),
+            'people'     => $this->people->activeForCompany($companyId),
             'totals'     => $this->totals($kind, $rows),
         ]);
     }
@@ -64,14 +70,17 @@ final class ReportController
         [$from, $to] = $this->range($q);
         $vehicleId = !empty($q['vehicle_id']) ? (int) $q['vehicle_id'] : null;
         $driverId = !empty($q['driver_id']) ? (int) $q['driver_id'] : null;
+        $personId = !empty($q['person_id']) ? (int) $q['person_id'] : null;
 
-        $rows = $this->rowsFor($kind, $companyId, $from, $to, $q, $vehicleId, $driverId);
+        $rows = $this->rowsFor($kind, $companyId, $from, $to, $q, $vehicleId, $driverId, $personId);
 
         [$headers, $mapper] = $this->csvShape($kind);
+        // El separador/encierro/escape van explícitos: desde PHP 8.4 omitir
+        // `$escape` está deprecado y su default va a cambiar.
         $fh = fopen('php://temp', 'r+');
-        fputcsv($fh, $headers);
+        fputcsv($fh, $headers, ',', '"', '\\');
         foreach ($rows as $r) {
-            fputcsv($fh, $mapper($r));
+            fputcsv($fh, $mapper($r), ',', '"', '\\');
         }
         rewind($fh);
         $csv = stream_get_contents($fh);
@@ -93,10 +102,19 @@ final class ReportController
      * @param array<string,mixed> $q
      * @return array<int,array<string,mixed>>
      */
-    private function rowsFor(string $kind, int $companyId, string $from, string $to, array $q, ?int $vehicleId, ?int $driverId): array
-    {
+    private function rowsFor(
+        string $kind,
+        int $companyId,
+        string $from,
+        string $to,
+        array $q,
+        ?int $vehicleId,
+        ?int $driverId,
+        ?int $personId = null
+    ): array {
         return match ($kind) {
             'driver' => $this->reports->byDriver($companyId, $from, $to, $driverId),
+            'person' => $this->reports->byPerson($companyId, $from, $to, $personId),
             'alerts' => $this->reports->alerts($companyId, $from, $to, $q['type'] ?? null, $q['severity'] ?? null, $q['status'] ?? null),
             default  => $this->reports->byVehicle($companyId, $from, $to, $vehicleId),
         };
@@ -111,11 +129,26 @@ final class ReportController
     {
         if ($kind === 'alerts') {
             return [
-                ['Fecha', 'Tipo', 'Severidad', 'Vehículo', 'Conductor', 'Mensaje', 'Estado'],
+                ['Fecha', 'Tipo', 'Severidad', 'Vehículo', 'Persona / conductor', 'Mensaje', 'Estado'],
                 static fn ($r) => [
                     $r['ts'], $r['type'], $r['severity'], $r['plate'] ?? '',
-                    $r['driver_name'] ?: 'No identificado', $r['message'],
+                    ($r['person_name'] ?? '') ?: ($r['driver_name'] ?: 'No identificado'),
+                    $r['message'],
                     $r['acknowledged_at'] ? 'reconocida' : 'sin reconocer',
+                ],
+            ];
+        }
+        if ($kind === 'person') {
+            return [
+                ['Persona', 'Días', 'Jornada prevista (min)', 'Con reporte (min)', 'Cobertura %',
+                 'Recorridos', 'Km', 'Misiones', 'Cumplidas', 'No cumplidas',
+                 'Fuera de puesto', 'Sin movimiento', 'Pánico'],
+                static fn ($r) => [
+                    $r['label'], $r['days'],
+                    (int) round($r['expected_sec'] / 60), (int) round($r['reported_sec'] / 60),
+                    $r['coverage_pct'] ?? '', $r['trips'], $r['km'],
+                    $r['missions'], $r['missions_done'], $r['missions_miss'],
+                    $r['off_post'], $r['no_movement'], $r['panic'],
                 ],
             ];
         }
@@ -148,6 +181,22 @@ final class ReportController
     {
         if ($kind === 'alerts') {
             return ['count' => count($rows)];
+        }
+        if ($kind === 'person') {
+            $t = ['trips' => 0, 'km' => 0.0, 'expected_sec' => 0, 'reported_sec' => 0,
+                  'missions' => 0, 'missions_done' => 0, 'missions_miss' => 0,
+                  'off_post' => 0, 'no_movement' => 0, 'panic' => 0];
+            foreach ($rows as $r) {
+                foreach (array_keys($t) as $k) {
+                    $t[$k] += $r[$k];
+                }
+            }
+            $t['km'] = round($t['km'], 2);
+            $t['coverage_pct'] = $t['expected_sec'] > 0
+                ? (int) round(min(100, $t['reported_sec'] / $t['expected_sec'] * 100))
+                : null;
+
+            return $t;
         }
         $t = ['trips' => 0, 'km' => 0.0, 'duration_sec' => 0, 'speed_alerts' => 0];
         foreach ($rows as $r) {

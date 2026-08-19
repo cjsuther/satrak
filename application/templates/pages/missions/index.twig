@@ -1,0 +1,77 @@
+{% extends "layouts/app.twig" %}
+{% block title %}Misiones{% endblock %}
+
+{% set labels = {
+  'pending': 'Pendiente', 'in_progress': 'En curso', 'completed': 'Cumplida',
+  'missed': 'No cumplida', 'cancelled': 'Cancelada'
+} %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Personal</span><h1>Misiones</h1>
+    <p class="muted">Traslados autorizados: habilitan a la persona a estar fuera de su puesto.</p>
+  </div>
+  <a class="btn btn-primary" href="/misiones/nueva">+ Nueva misión</a>
+</div>
+
+<form method="get" action="/misiones" class="card filter-bar">
+  <label class="field">
+    <span>Buscar</span>
+    <input class="input" type="search" name="q" value="{{ q }}" placeholder="Persona o destino">
+  </label>
+  <label class="field">
+    <span>Estado</span>
+    <select class="input" name="status">
+      <option value="">Todos</option>
+      {% for value, label in labels %}
+        <option value="{{ value }}" {{ status == value ? 'selected' }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button class="btn btn-secondary" type="submit">Filtrar</button>
+</form>
+
+{% include 'partials/pagination.twig' with {base: '/misiones'} %}
+
+<div class="card">
+  <table class="data-table">
+    <thead><tr>
+      <th>Persona</th><th>Destino</th><th>Ventana</th><th>Estado</th><th>Real</th><th class="ta-right">Acciones</th>
+    </tr></thead>
+    <tbody>
+      {% for m in page.rows %}
+        <tr>
+          <td><strong>{{ m.person_name }}</strong></td>
+          <td>{{ m.dest_name }}</td>
+          <td class="mono">{{ m.scheduled_start|slice(5,11) }} → {{ m.scheduled_end|slice(11,5) }}</td>
+          <td>
+            <span class="badge {{ m.status in ['completed'] ? 'badge-ok' : (m.status in ['missed'] ? 'badge-crit' : 'badge-off') }}">
+              <span class="dot"></span> {{ labels[m.status] ?? m.status }}
+            </span>
+          </td>
+          <td class="mono">
+            {%- if m.started_at %}{{ m.started_at|slice(11,5) }}{% else %}—{% endif -%}
+            {%- if m.arrived_at %} → {{ m.arrived_at|slice(11,5) }}{% endif -%}
+          </td>
+          <td class="ta-right actions">
+            {% if m.status in ['pending', 'in_progress'] %}
+              <a class="btn btn-secondary btn-sm" href="/misiones/{{ m.id }}/editar">Editar</a>
+              <form method="post" action="/misiones/{{ m.id }}/estado" class="inline-form"
+                    data-confirm="¿Cancelar la misión de {{ m.person_name }}?">
+                {{ csrf_field() }}
+                <input type="hidden" name="status" value="cancelled">
+                <button class="btn btn-secondary btn-sm" type="submit">Cancelar</button>
+              </form>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">No hay misiones.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
