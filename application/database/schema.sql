@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS companies (
   slug          VARCHAR(120) NOT NULL UNIQUE,
   status        ENUM('active','suspended') NOT NULL DEFAULT 'active',
   device_quota  INT UNSIGNED NOT NULL DEFAULT 0,      -- cupo máximo de dispositivos
+  person_quota  INT UNSIGNED NOT NULL DEFAULT 0,      -- cupo máximo de personas rastreadas
+  modules       SET('fleet','people') NOT NULL DEFAULT 'fleet',  -- módulos contratados
+  emergency_email VARCHAR(150) NULL,                   -- guardia: recibe siempre pánico y SOS
   timezone      VARCHAR(40) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -35,23 +38,51 @@ CREATE TABLE IF NOT EXISTS users (
   id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   company_id    BIGINT UNSIGNED NULL,                  -- NULL = super admin
   driver_id     BIGINT UNSIGNED NULL,                  -- set si role='driver'
+  person_id     BIGINT UNSIGNED NULL,                  -- set si role='person'
   name          VARCHAR(120) NOT NULL,
   email         VARCHAR(150) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role          ENUM('super_admin','company_admin','operator','driver') NOT NULL,
+  role          ENUM('super_admin','company_admin','operator','driver','person') NOT NULL,
   status        ENUM('active','disabled') NOT NULL DEFAULT 'active',
   last_login_at DATETIME NULL,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX (company_id), INDEX (role)
+  INDEX (company_id), INDEX (role), INDEX (person_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- -----------------------------------------------------------------------------
--- Conductores
+-- Personas (maestro). Un conductor es el PERFIL DE CONDUCCIÓN de una persona.
+-- `password_hash` es la clave de la app móvil (no da acceso al panel web; para
+-- eso se le crea un `user` con role='person').
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS people (
+  id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  company_id      BIGINT UNSIGNED NOT NULL,
+  first_name      VARCHAR(80) NOT NULL,
+  last_name       VARCHAR(80) NOT NULL,
+  dni             VARCHAR(20) NULL,
+  phone           VARCHAR(20) NULL,
+  email           VARCHAR(150) NULL,
+  job_title       VARCHAR(80) NULL,                    -- cargo (informativo)
+  password_hash   VARCHAR(255) NULL,                   -- acceso a la app móvil
+  password_set_at DATETIME NULL,
+  consent_at      DATETIME NULL,                       -- consentimiento informado (Ley 25.326)
+  consent_note    VARCHAR(255) NULL,
+  status          ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_person_dni (company_id, dni),
+  INDEX idx_people_company (company_id),
+  INDEX idx_people_status (company_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -----------------------------------------------------------------------------
+-- Conductores (perfil de conducción de una persona: licencia + PIN)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS drivers (
   id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   company_id    BIGINT UNSIGNED NOT NULL,
+  person_id     BIGINT UNSIGNED NULL UNIQUE,           -- persona titular del perfil
   first_name    VARCHAR(80) NOT NULL,
   last_name     VARCHAR(80) NOT NULL,
   dni           VARCHAR(20) NULL,
@@ -91,7 +122,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
 CREATE TABLE IF NOT EXISTS devices (
   id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   company_id      BIGINT UNSIGNED NOT NULL,
-  imei            VARCHAR(20) NOT NULL UNIQUE,
+  imei            VARCHAR(64) NOT NULL UNIQUE,     -- IMEI del equipo, o install_id de la app
   label           VARCHAR(60) NULL,                    -- alias
   model           VARCHAR(50) NULL,
   protocol        VARCHAR(30) NULL,                    -- gt06, teltonika, etc. (informativo)
@@ -229,12 +260,14 @@ CREATE TABLE IF NOT EXISTS geofences (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- -----------------------------------------------------------------------------
--- Vehículos alcanzados por una geocerca (vacío = todos)
+-- Alcance de una geocerca, por tipo (sin filas de un tipo = todos los de ese tipo)
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS geofence_vehicles (
-  geofence_id  BIGINT UNSIGNED NOT NULL,
-  vehicle_id   BIGINT UNSIGNED NOT NULL,
-  PRIMARY KEY (geofence_id, vehicle_id)
+CREATE TABLE IF NOT EXISTS geofence_targets (
+  geofence_id BIGINT UNSIGNED NOT NULL,
+  target_type ENUM('vehicle','person') NOT NULL,
+  target_id   BIGINT UNSIGNED NOT NULL,
+  PRIMARY KEY (geofence_id, target_type, target_id),
+  INDEX idx_gt_target (target_type, target_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- -----------------------------------------------------------------------------
@@ -243,7 +276,9 @@ CREATE TABLE IF NOT EXISTS geofence_vehicles (
 CREATE TABLE IF NOT EXISTS alert_rules (
   id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   company_id   BIGINT UNSIGNED NOT NULL,
-  type         ENUM('speed','geofence_enter','geofence_exit','offline','sos','idle') NOT NULL,
+  type         ENUM('speed','geofence_enter','geofence_exit','offline','sos','idle',
+                    'panic','no_movement','off_post','mission_late','mission_missed',
+                    'low_battery','app_offline','out_of_shift') NOT NULL,
   params       JSON NULL,        -- speed:{max_kmh} geofence:{geofence_id} offline:{minutes} idle:{minutes}
   channels     JSON NOT NULL,    -- ["inapp","email"]
   recipients   JSON NULL,        -- emails extra
@@ -262,6 +297,7 @@ CREATE TABLE IF NOT EXISTS alerts (
   device_id       BIGINT UNSIGNED NULL,
   vehicle_id      BIGINT UNSIGNED NULL,
   driver_id       BIGINT UNSIGNED NULL,
+  person_id       BIGINT UNSIGNED NULL,
   type            VARCHAR(30) NOT NULL,
   severity        ENUM('info','warning','critical') NOT NULL DEFAULT 'warning',
   message         VARCHAR(255) NOT NULL,

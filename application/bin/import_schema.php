@@ -42,3 +42,7 @@ echo 'OK · ' . count($tables) . " tablas en la base:\n";
 foreach ($tables as $t) {
     echo "  - {$t}\n";
 }
+
+echo "\nBase nueva: schema.sql ya incluye todas las migraciones. Marcalas como\n"
+   . "aplicadas para que bin/migrate.php no intente re-ejecutarlas:\n"
+   . "  php bin/migrate.php --baseline\n";
