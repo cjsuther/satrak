@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+
+# Proyectos nativos generados por `cap add` (se regeneran; no se versionan
+# hasta que haya que tocar código nativo a mano).
+/android/
+/ios/
+
+.DS_Store
+.testbuild/

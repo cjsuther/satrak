@@ -1,0 +1,40 @@
+{
+  "name": "satrak-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App de campo de Satrak: rastreo de personal en jornada, misiones y bot\u00f3n de p\u00e1nico.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "sync": "npm run build && cap sync",
+    "android": "npm run sync && cap open android",
+    "ios": "npm run sync && cap open ios",
+    "test": "tsc src/api/client.ts src/api/types.ts src/tracking/shift.ts --outDir .testbuild --target ES2019 --module ES2020 --moduleResolution bundler && node test/shift.test.mjs",
+    "test:e2e": "tsc src/api/client.ts src/api/types.ts src/tracking/shift.ts --outDir .testbuild --target ES2019 --module ES2020 --moduleResolution bundler && node test/api.e2e.mjs"
+  },
+  "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.20",
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/app": "^6.0.2",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/device": "^6.0.2",
+    "@capacitor/geolocation": "^6.1.1",
+    "@capacitor/haptics": "^6.0.2",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/network": "^6.0.3",
+    "@capacitor/preferences": "^6.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  }
+}
