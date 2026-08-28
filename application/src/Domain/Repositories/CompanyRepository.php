@@ -63,9 +63,9 @@ final class CompanyRepository extends BaseRepository
     {
         $stmt = $this->db->prepare(
             'INSERT INTO companies (name, slug, status, device_quota, person_quota, modules,
-                                    emergency_email, timezone)
+                                    emergency_email, panic_enabled, timezone)
              VALUES (:name, :slug, :status, :device_quota, :person_quota, :modules,
-                     :emergency_email, :timezone)'
+                     :emergency_email, :panic_enabled, :timezone)'
         );
         $stmt->execute([
             ':name'         => $data['name'],
@@ -75,6 +75,7 @@ final class CompanyRepository extends BaseRepository
             ':person_quota' => (int) ($data['person_quota'] ?? 0),
             ':modules'      => self::modulesValue($data['modules'] ?? null),
             ':emergency_email' => trim((string) ($data['emergency_email'] ?? '')) ?: null,
+            ':panic_enabled' => !empty($data['panic_enabled']) ? 1 : 0,
             ':timezone'     => $data['timezone'] ?? 'America/Argentina/Buenos_Aires',
         ]);
 
@@ -87,7 +88,8 @@ final class CompanyRepository extends BaseRepository
         $stmt = $this->db->prepare(
             'UPDATE companies SET name=:name, slug=:slug, status=:status,
              device_quota=:device_quota, person_quota=:person_quota, modules=:modules,
-             emergency_email=:emergency_email, timezone=:timezone WHERE id=:id'
+             emergency_email=:emergency_email, panic_enabled=:panic_enabled,
+             timezone=:timezone WHERE id=:id'
         );
         $stmt->execute([
             ':name'         => $data['name'],
@@ -97,6 +99,7 @@ final class CompanyRepository extends BaseRepository
             ':person_quota' => (int) ($data['person_quota'] ?? 0),
             ':modules'      => self::modulesValue($data['modules'] ?? null),
             ':emergency_email' => trim((string) ($data['emergency_email'] ?? '')) ?: null,
+            ':panic_enabled' => !empty($data['panic_enabled']) ? 1 : 0,
             ':timezone'     => $data['timezone'],
             ':id'           => $id,
         ]);

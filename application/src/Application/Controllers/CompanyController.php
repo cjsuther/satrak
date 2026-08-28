@@ -58,7 +58,8 @@ final class CompanyController
     {
         return $this->twig->render($response, 'pages/companies/form.twig', [
             'mode'    => 'create',
-            'company' => ['status' => 'active', 'device_quota' => 0, 'timezone' => 'America/Argentina/Buenos_Aires'],
+            'company' => ['status' => 'active', 'device_quota' => 0, 'panic_enabled' => 1,
+                          'timezone' => 'America/Argentina/Buenos_Aires'],
         ]);
     }
 
@@ -104,6 +105,7 @@ final class CompanyController
                 'person_quota' => (int) ($d['person_quota'] ?? 0),
                 'modules'      => (array) ($d['modules'] ?? []),
                 'emergency_email' => trim((string) ($d['emergency_email'] ?? '')),
+                'panic_enabled' => !empty($d['panic_enabled']),
                 'timezone'     => trim((string) ($d['timezone'] ?? 'America/Argentina/Buenos_Aires')),
             ]);
 
@@ -172,6 +174,7 @@ final class CompanyController
             'person_quota' => (int) ($d['person_quota'] ?? 0),
             'modules'      => (array) ($d['modules'] ?? []),
             'emergency_email' => trim((string) ($d['emergency_email'] ?? '')),
+            'panic_enabled' => !empty($d['panic_enabled']),
             'timezone'     => trim((string) ($d['timezone'] ?? $company['timezone'])),
         ]);
 
@@ -198,6 +201,7 @@ final class CompanyController
             'person_quota' => (int) $company['person_quota'],
             'modules'      => (string) $company['modules'],
             'emergency_email' => (string) ($company['emergency_email'] ?? ''),
+            'panic_enabled' => (int) ($company['panic_enabled'] ?? 1) === 1,
             'timezone'     => $company['timezone'],
         ]);
 

@@ -63,6 +63,24 @@
     </div>
   </div>
 
+  {# Funciones de la app de campo. No son módulos contratados: son opciones
+     dentro de «Personal», por eso no van en `modules`. #}
+  <div class="form-section">
+    <span class="eyebrow">App de campo</span>
+    <div class="checkbox-grid">
+      <label class="checkbox-pill">
+        <input type="checkbox" name="panic_enabled" value="1"
+               {{ (company.panic_enabled|default(1)) ? 'checked' }}>
+        <span>Botón de pánico</span>
+      </label>
+    </div>
+    <p class="muted">
+      Si se desactiva, la app deja de mostrar el botón y el servidor rechaza los
+      pánicos de esta empresa. Conviene apagarlo cuando no hay una guardia que
+      pueda responder: un botón que nadie atiende promete un auxilio que no llega.
+    </p>
+  </div>
+
   {% if mode == 'create' %}
     <div class="form-section">
       <span class="eyebrow">Admin de la empresa (opcional)</span>

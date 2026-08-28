@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS companies (
   person_quota  INT UNSIGNED NOT NULL DEFAULT 0,      -- cupo máximo de personas rastreadas
   modules       SET('fleet','people') NOT NULL DEFAULT 'fleet',  -- módulos contratados
   emergency_email VARCHAR(150) NULL,                   -- guardia: recibe siempre pánico y SOS
+  panic_enabled TINYINT(1) NOT NULL DEFAULT 1,         -- ¿la app muestra el botón de pánico?
   timezone      VARCHAR(40) NOT NULL DEFAULT 'America/Argentina/Buenos_Aires',
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
