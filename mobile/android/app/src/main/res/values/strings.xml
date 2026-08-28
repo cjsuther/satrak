@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Satrak Campo</string>
+    <string name="title_activity_main">Satrak Campo</string>
+    <string name="package_name">online.satrak.campo</string>
+    <string name="custom_url_scheme">online.satrak.campo</string>
+</resources>

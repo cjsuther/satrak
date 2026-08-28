@@ -3,10 +3,28 @@ dist/
 .env
 .env.local
 
-# Proyectos nativos generados por `cap add` (se regeneran; no se versionan
-# hasta que haya que tocar código nativo a mano).
-/android/
-/ios/
+# Los proyectos nativos SÍ se versionan desde que la app va a las tiendas.
+# `cap add` los regenera con los valores por defecto de Capacitor y se llevaría
+# puesto todo lo que hay que sostener para publicar: el minSdk/targetSdk, la
+# config de firma, los íconos, las claves de permisos del Info.plist, el
+# PrivacyInfo y los números de versión. Ya se perdieron dos veces.
+#
+# Lo que NO va al repo son los artefactos de build y los secretos de firma.
+/android/build/
+/android/app/build/
+/android/.gradle/
+/android/local.properties
+/android/keystore.properties
+/android/*.jks
+/android/*.keystore
+/android/app/*.jks
+/android/app/*.keystore
+/ios/App/Pods/
+/ios/App/build/
+/ios/DerivedData/
+/ios/App/App.xcworkspace/xcuserdata/
+/ios/App/App.xcodeproj/xcuserdata/
+/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 
 .DS_Store
 .testbuild/
