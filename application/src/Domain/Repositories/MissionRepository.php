@@ -84,9 +84,12 @@ final class MissionRepository extends BaseRepository
         $stmt = $this->db->prepare(
             "SELECT m.id, m.status, m.scheduled_start, m.scheduled_end, m.started_at, m.arrived_at,
                     m.notes, m.dest_geofence_id, g.name AS dest_name, g.shape AS dest_shape,
-                    g.geometry AS dest_geometry
+                    g.geometry AS dest_geometry,
+                    m.origin_geofence_id, og.name AS origin_name, og.shape AS origin_shape,
+                    og.geometry AS origin_geometry
              FROM person_missions m
              JOIN geofences g ON g.id = m.dest_geofence_id
+             LEFT JOIN geofences og ON og.id = m.origin_geofence_id
              WHERE m.person_id = ? AND m.company_id = ?
                AND m.scheduled_start BETWEEN ? AND ?
                AND m.status <> 'cancelled'
@@ -199,7 +202,7 @@ final class MissionRepository extends BaseRepository
             [
                 'm.id', 'm.status', 'm.scheduled_start', 'm.scheduled_end',
                 'm.started_at', 'm.arrived_at', 'm.person_id',
-                "TRIM(CONCAT(p.last_name, ', ', p.first_name)) AS person_name",
+                "TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS person_name",
                 'g.name AS dest_name',
             ],
             $where,

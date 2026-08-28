@@ -45,6 +45,7 @@ export default function App() {
 
   const [post, setPost] = useState<Post | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [panicEnabled, setPanicEnabled] = useState(true);
   const [offsetMinutes, setOffsetMinutes] = useState(0);
   const [status, setStatus] = useState<TrackerStatus | null>(null);
 
@@ -72,6 +73,8 @@ export default function App() {
       setOffsetMinutes(offset);
       setPost(payload.post);
       setMissions(payload.missions);
+      // Ausente => habilitado: un servidor viejo no debe apagar el pánico.
+      setPanicEnabled(payload.config.panic_enabled !== false);
       trackerRef.current.configure(schedule, payload.config);
     },
     [],
@@ -232,6 +235,11 @@ export default function App() {
     return (
       <Missions
         missions={missions}
+        here={
+          status && status.lastLat !== null && status.lastLon !== null
+            ? { lat: status.lastLat, lon: status.lastLon }
+            : null
+        }
         onBack={() => setView('home')}
         onStart={startMission}
         onArrive={arriveMission}
@@ -246,6 +254,7 @@ export default function App() {
       status={status ?? trackerRef.current.getStatus()}
       post={post}
       missions={missions}
+      panicEnabled={panicEnabled}
       syncing={syncing}
       onSync={doSync}
       onPanic={doPanic}

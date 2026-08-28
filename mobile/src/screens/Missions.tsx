@@ -7,7 +7,8 @@
  */
 
 import { useState } from 'react';
-import type { Mission } from '../api/types';
+import type { Mission, MissionPlace } from '../api/types';
+import { distanceToGeofence, formatDistance, type LatLon } from '../tracking/geo';
 
 const LABELS: Record<Mission['status'], string> = {
   pending: 'Pendiente',
@@ -19,12 +20,37 @@ const LABELS: Record<Mission['status'], string> = {
 
 interface Props {
   missions: Mission[];
+  /** Última posición conocida; null mientras no haya fix. */
+  here: LatLon | null;
   onBack: () => void;
   onStart: (id: number) => Promise<void>;
   onArrive: (id: number) => Promise<void>;
 }
 
-export function Missions({ missions, onBack, onStart, onArrive }: Props) {
+/**
+ * Fila «Origen / Destino — a tantos metros». Es lo que le permite a la persona
+ * confirmar que el teléfono la ubica donde realmente está antes de tocar
+ * «Llegué», que el servidor puede rechazar.
+ */
+function PlaceRow({ label, place, here }: { label: string; place: MissionPlace; here: LatLon | null }) {
+  const d = here ? distanceToGeofence(here, place.shape, place.geometry) : null;
+
+  return (
+    <div className="place-row">
+      <span className="muted">{label}</span>{' '}
+      <strong>{place.name}</strong>
+      {d && (
+        <span className={d.inside ? 'distance distance--in' : 'distance'}>
+          {' · '}
+          {d.inside ? 'estás adentro' : `a ${formatDistance(d.meters)}`}
+        </span>
+      )}
+      {!d && here === null && <span className="muted"> · esperando ubicación…</span>}
+    </div>
+  );
+}
+
+export function Missions({ missions, here, onBack, onStart, onArrive }: Props) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +86,10 @@ export function Missions({ missions, onBack, onStart, onArrive }: Props) {
             {m.scheduled_start.slice(11, 16)} – {m.scheduled_end.slice(11, 16)} ·{' '}
             {LABELS[m.status]}
           </p>
+
+          {m.origin && <PlaceRow label="Origen" place={m.origin} here={here} />}
+          <PlaceRow label="Destino" place={m.destination} here={here} />
+
           {m.notes && <p>{m.notes}</p>}
 
           {m.status === 'pending' && (

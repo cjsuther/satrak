@@ -9,6 +9,7 @@
 import type { Mission, Post } from '../api/types';
 import { openAppSettings } from '../tracking/plugin';
 import type { TrackerStatus } from '../tracking/tracker';
+import { distanceToGeofence, formatDistance } from '../tracking/geo';
 import { PanicButton } from '../components/PanicButton';
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
   status: TrackerStatus;
   post: Post | null;
   missions: Mission[];
+  /** La empresa puede tener el pánico desactivado. */
+  panicEnabled: boolean;
   syncing: boolean;
   onSync: () => void;
   onPanic: () => Promise<void>;
@@ -30,6 +33,7 @@ export function Home({
   status,
   post,
   missions,
+  panicEnabled,
   syncing,
   onSync,
   onPanic,
@@ -37,6 +41,28 @@ export function Home({
   onLogout,
 }: Props) {
   const active = missions.filter((m) => m.status === 'pending' || m.status === 'in_progress');
+
+  const here =
+    status.lastLat !== null && status.lastLon !== null
+      ? { lat: status.lastLat, lon: status.lastLon }
+      : null;
+
+  /** Texto de distancia a una geocerca, o null si todavía no hay fix. */
+  const distanceTo = (
+    shape: 'circle' | 'polygon',
+    geometry: Post['geometry'],
+  ): { text: string; inside: boolean } | null => {
+    if (!here) return null;
+    const d = distanceToGeofence(here, shape, geometry);
+    if (!d) return null;
+
+    return {
+      text: d.inside ? 'Estás adentro' : `A ${formatDistance(d.meters)}`,
+      inside: d.inside,
+    };
+  };
+
+  const postDistance = post ? distanceTo(post.shape, post.geometry) : null;
 
   return (
     <div className="screen">
@@ -76,13 +102,21 @@ export function Home({
         </div>
       )}
 
-      <PanicButton onConfirm={onPanic} />
+      {panicEnabled && <PanicButton onConfirm={onPanic} />}
 
       <section className="card">
         <h2>Mi puesto</h2>
         {post ? (
           <p>
             <strong>{post.name}</strong>
+            <br />
+            {postDistance ? (
+              <span className={postDistance.inside ? 'distance distance--in' : 'distance'}>
+                {postDistance.text}
+              </span>
+            ) : (
+              <span className="muted">Esperando la ubicación…</span>
+            )}
             <br />
             <span className="muted">Tolerancia {post.grace_min} min fuera del puesto.</span>
           </p>
@@ -104,6 +138,18 @@ export function Home({
                   {' '}
                   {m.scheduled_start.slice(11, 16)}–{m.scheduled_end.slice(11, 16)}
                 </span>
+                {(() => {
+                  const d = distanceTo(m.destination.shape, m.destination.geometry);
+
+                  return d ? (
+                    <>
+                      <br />
+                      <span className={d.inside ? 'distance distance--in' : 'distance'}>
+                        {d.text}
+                      </span>
+                    </>
+                  ) : null;
+                })()}
               </li>
             ))}
           </ul>
@@ -123,6 +169,16 @@ export function Home({
           <div>
             <dt>Última ubicación</dt>
             <dd>{status.lastFixAt ? timeOf(status.lastFixAt) : '—'}</dd>
+          </div>
+          <div>
+            <dt>Coordenadas</dt>
+            <dd className="mono">
+              {here ? `${here.lat.toFixed(5)}, ${here.lon.toFixed(5)}` : '—'}
+            </dd>
+          </div>
+          <div>
+            <dt>Precisión</dt>
+            <dd>{status.lastAccuracyM !== null ? `± ${status.lastAccuracyM} m` : '—'}</dd>
           </div>
           <div>
             <dt>Última subida</dt>

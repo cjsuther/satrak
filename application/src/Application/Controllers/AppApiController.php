@@ -271,6 +271,14 @@ final class AppApiController
         $personId = (int) $request->getAttribute('person_id');
         $deviceId = (int) $request->getAttribute('device_id');
 
+        // El pánico se habilita por empresa. Se valida acá y no sólo en la app:
+        // el cliente puede estar desactualizado o alterado, y aceptar un pánico
+        // que nadie va a atender es peor que rechazarlo.
+        $company = $this->companies->find($companyId);
+        if ((int) ($company['panic_enabled'] ?? 1) !== 1) {
+            return $this->json($response, null, 'El botón de pánico no está habilitado para tu empresa.', 403);
+        }
+
         $d = $this->body($request);
         $ts = $this->normalizeTs($d['ts'] ?? null, time()) ?? date('Y-m-d H:i:s');
 
@@ -430,6 +438,14 @@ final class AppApiController
                     'shape'       => $m['dest_shape'],
                     'geometry'    => $this->decodeJson($m['dest_geometry']),
                 ],
+                // El origen es opcional y la app sólo lo usa para mostrar a qué
+                // distancia está de cada punto: no condiciona ninguna validación.
+                'origin' => $m['origin_geofence_id'] === null ? null : [
+                    'geofence_id' => (int) $m['origin_geofence_id'],
+                    'name'        => $m['origin_name'],
+                    'shape'       => $m['origin_shape'],
+                    'geometry'    => $this->decodeJson($m['origin_geometry']),
+                ],
             ], $this->missions->forPersonBetween(
                 $personId,
                 $companyId,
@@ -440,6 +456,9 @@ final class AppApiController
                 'moving_sample_seconds'  => $this->movingSampleSeconds,
                 'stopped_sample_seconds' => $this->stoppedSampleSeconds,
                 'max_batch'              => self::MAX_BATCH,
+                // La app oculta el botón si viene en false, pero el permiso real
+                // lo aplica `panic()`: una app vieja o modificada no alcanza.
+                'panic_enabled'          => (int) ($company['panic_enabled'] ?? 1) === 1,
             ],
         ];
     }

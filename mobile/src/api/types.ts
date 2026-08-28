@@ -47,24 +47,33 @@ export interface Post {
 
 export type MissionStatus = 'pending' | 'in_progress' | 'completed' | 'missed' | 'cancelled';
 
+export interface MissionPlace {
+  geofence_id: number;
+  name: string;
+  shape: 'circle' | 'polygon';
+  geometry: Geometry | Array<[number, number]>;
+}
+
 export interface Mission {
   id: number;
   status: MissionStatus;
   scheduled_start: string;
   scheduled_end: string;
   notes: string | null;
-  destination: {
-    geofence_id: number;
-    name: string;
-    shape: 'circle' | 'polygon';
-    geometry: Geometry | Array<[number, number]>;
-  };
+  destination: MissionPlace;
+  /** Opcional: no todas las misiones tienen origen cargado. */
+  origin: MissionPlace | null;
 }
 
 export interface TrackingConfig {
   moving_sample_seconds: number;
   stopped_sample_seconds: number;
   max_batch: number;
+  /**
+   * Lo habilita la empresa. Puede faltar si el servidor es anterior a esta
+   * opción: en ese caso se asume habilitado, que era el comportamiento previo.
+   */
+  panic_enabled?: boolean;
 }
 
 /** Lo que devuelven tanto `/login` como `/sync`. */

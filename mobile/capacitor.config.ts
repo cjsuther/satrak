@@ -11,6 +11,13 @@ const config: CapacitorConfig = {
   },
   plugins: {
     BackgroundGeolocation: {},
+    // Redirige fetch/XHR al HTTP nativo. Sin esto el WebView (origen
+    // http://localhost) hace una petición cross-origin contra la API y la
+    // bloquea por CORS: el backend no responde OPTIONS ni emite
+    // Access-Control-Allow-*. Por nativo no hay CORS y no hay que abrir la API.
+    CapacitorHttp: {
+      enabled: true,
+    },
   },
 };
 

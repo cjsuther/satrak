@@ -104,3 +104,23 @@ h2 { font-size: 1rem; margin: 0 0 .5rem; text-transform: uppercase; letter-spaci
 .list { list-style: none; margin: 0 0 12px; padding: 0; }
 .list li { padding: 8px 0; border-bottom: 1px solid var(--line); }
 .list li:last-child { border-bottom: 0; }
+
+/* Distancia al puesto o a un punto de misión. Ámbar cuando está lejos y teal
+   cuando ya está adentro: la persona verifica de un vistazo, sin leer el texto. */
+.distance {
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+.distance--in { color: var(--teal); }
+
+.place-row {
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: .95rem;
+}
+.place-row:first-of-type { border-top: 0; }
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}

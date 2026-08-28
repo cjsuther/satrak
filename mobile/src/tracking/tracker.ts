@@ -35,6 +35,16 @@ export interface TrackerStatus {
   batteryPct: number | null;
   permissionDenied: boolean;
   lastError: string | null;
+  /**
+   * Última posición conocida, sólo para mostrarle a la persona a qué distancia
+   * está de su puesto o de una misión. Se actualiza aunque esté fuera de
+   * jornada —así puede verificar el GPS en cualquier momento— pero en ese caso
+   * NO se bufferea ni se sube nada: la regla de descartar fuera de turno sigue
+   * intacta, esto no sale del teléfono.
+   */
+  lastLat: number | null;
+  lastLon: number | null;
+  lastAccuracyM: number | null;
 }
 
 export type StatusListener = (status: TrackerStatus) => void;
@@ -57,6 +67,9 @@ export class Tracker {
     batteryPct: null,
     permissionDenied: false,
     lastError: null,
+    lastLat: null,
+    lastLon: null,
+    lastAccuracyM: null,
   };
 
   constructor(
@@ -179,6 +192,15 @@ export class Tracker {
 
     const at = location.time ? new Date(location.time) : new Date();
 
+    // La posición para mostrar en pantalla se refresca siempre, dentro o fuera
+    // de jornada: sirve para que la persona verifique su GPS. Queda en memoria
+    // del teléfono; lo que se descarta fuera de turno es guardarla y subirla.
+    this.emit({
+      lastLat: round(location.latitude, 7),
+      lastLon: round(location.longitude, 7),
+      lastAccuracyM: location.accuracy !== null ? Math.round(location.accuracy) : null,
+    });
+
     // Doble control: entre que llegó el fix y se procesa pudo terminar el turno.
     if (!isWithinShift(this.schedule, at)) return;
 
@@ -232,7 +254,11 @@ export class Tracker {
   private async refreshBattery(): Promise<void> {
     try {
       const info = await Device.getBatteryInfo();
-      const pct = info.batteryLevel !== undefined ? Math.round(info.batteryLevel * 100) : null;
+      // iOS devuelve -1 cuando el nivel no está disponible (simulador, o un
+      // equipo con el monitoreo de batería apagado). Sin este control se
+      // mostraba «-100%» y se mandaba un negativo a un TINYINT UNSIGNED.
+      const raw = info.batteryLevel !== undefined ? Math.round(info.batteryLevel * 100) : null;
+      const pct = raw !== null && raw >= 0 && raw <= 100 ? raw : null;
       if (pct !== this.status.batteryPct) {
         this.emit({ batteryPct: pct });
       }
