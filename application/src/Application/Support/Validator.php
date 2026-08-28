@@ -36,7 +36,7 @@ final class Validator
         }
     }
 
-    public function required(string $field, string $label = null): self
+    public function required(string $field, ?string $label = null): self
     {
         $v = $this->value($field);
         if ($v === null || (is_string($v) && trim($v) === '')) {
@@ -56,7 +56,7 @@ final class Validator
         return $this;
     }
 
-    public function minLength(string $field, int $min, string $label = null): self
+    public function minLength(string $field, int $min, ?string $label = null): self
     {
         $v = $this->value($field);
         if (is_string($v) && mb_strlen($v) < $min) {
@@ -66,7 +66,7 @@ final class Validator
         return $this;
     }
 
-    public function maxLength(string $field, int $max, string $label = null): self
+    public function maxLength(string $field, int $max, ?string $label = null): self
     {
         $v = $this->value($field);
         if (is_string($v) && mb_strlen($v) > $max) {

@@ -39,8 +39,11 @@ if (!function_exists('slugify')) {
         $text = (string) preg_replace('/[^\p{L}\p{N}]+/u', '-', $text);
         $text = trim($text, '-');
         $text = mb_strtolower($text, 'UTF-8');
-        // Translitera acentos comunes a ASCII.
-        $text = (string) iconv('UTF-8', 'ASCII//TRANSLIT', $text);
+        // Translitera acentos comunes a ASCII. //IGNORE descarta lo que no tiene
+        // equivalente (CJK, emoji) en vez de emitir un notice y cortar la
+        // conversión a la mitad; el filtro de abajo limpia lo que quede.
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+        $text = $ascii !== false ? $ascii : $text;
         $text = (string) preg_replace('/[^a-z0-9-]+/', '', $text);
         $text = (string) preg_replace('/-+/', '-', $text);
 

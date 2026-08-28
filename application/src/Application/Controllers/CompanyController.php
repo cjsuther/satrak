@@ -168,7 +168,17 @@ final class CompanyController
         $name = trim((string) $d['name']);
         $this->companies->update($id, [
             'name'         => $name,
-            'slug'         => $this->companies->uniqueSlug($name, $id),
+            // El slug NO se regenera al editar: es la credencial de empresa con
+            // la que las personas entran a la app (`company_slug` en
+            // /api/app/login). Regenerarlo desde el nombre dejaba a TODA la
+            // empresa sin poder loguearse, y encima como efecto colateral de
+            // guardar cualquier otro campo. Pasó en producción el 2026-08-28:
+            // guardar el toggle de pánico cambió 'transportes-comahue' por
+            // 'transportes-del-comahue' y tiró abajo el login de la app.
+            // Sólo se genera si por alguna razón la fila no tuviera slug.
+            'slug'         => ($company['slug'] ?? '') !== ''
+                                ? (string) $company['slug']
+                                : $this->companies->uniqueSlug($name, $id),
             'status'       => ($d['status'] ?? 'active') === 'suspended' ? 'suspended' : 'active',
             'device_quota' => (int) ($d['device_quota'] ?? 0),
             'person_quota' => (int) ($d['person_quota'] ?? 0),

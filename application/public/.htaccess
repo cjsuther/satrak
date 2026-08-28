@@ -20,11 +20,23 @@
 # No listar directorios.
 Options -Indexes
 
-# Cabeceras de seguridad base (las dinámicas las pone PHP; estas son red de seguridad).
+# Cabeceras de seguridad.
+#
+# La CSP se declara ACÁ y no sólo en PHP: el servidor de Hostinger inyecta su
+# propia `Content-Security-Policy: upgrade-insecure-requests` y PISA la que
+# emite la aplicación. Verificado en producción el 2026-08-28: la CSP de
+# index.php no llegaba al navegador y el sitio quedaba sin defensa contra XSS.
+# Si se toca la CSP de PHP, hay que tocar esta también.
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "microphone=(), camera=(), payment=(), usb=()"
+
+    # HSTS: dos años, subdominios incluidos. El sitio ya redirige todo a HTTPS.
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
+
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; script-src 'self' https://unpkg.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
 </IfModule>
 
 # Bloquear acceso a archivos sensibles si quedaran dentro de public por error.

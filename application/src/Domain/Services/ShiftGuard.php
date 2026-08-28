@@ -51,7 +51,15 @@ final class ShiftGuard
         $tz = $this->timezone($companyId);
         $moment = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $ts, $tz);
         if ($moment === false) {
-            $moment = new DateTimeImmutable($ts, $tz);
+            // Fallback tolerante (acepta ISO-8601, que es lo que manda la app).
+            // Si tampoco parsea, se FALLA CERRADO: ante la duda de si el
+            // instante cae en jornada, no se rastrea. Antes propagaba la
+            // excepción de DateTimeImmutable y se llevaba puesto el request.
+            try {
+                $moment = new DateTimeImmutable($ts, $tz);
+            } catch (\Exception) {
+                return false;
+            }
         }
 
         // Se evalúa el día del instante y el anterior: una ventana nocturna

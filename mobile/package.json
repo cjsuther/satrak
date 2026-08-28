@@ -2,7 +2,7 @@
   "name": "satrak-mobile",
   "version": "1.0.0",
   "private": true,
-  "description": "App de campo de Satrak: rastreo de personal en jornada, misiones y bot\u00f3n de p\u00e1nico.",
+  "description": "App de campo de Satrak: rastreo de personal en jornada, misiones y botón de pánico.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,8 +12,10 @@
     "sync": "npm run build && cap sync",
     "android": "npm run sync && cap open android",
     "ios": "npm run sync && cap open ios",
-    "test": "tsc src/api/client.ts src/api/types.ts src/tracking/shift.ts --outDir .testbuild --target ES2019 --module ES2020 --moduleResolution bundler && node test/shift.test.mjs",
-    "test:e2e": "tsc src/api/client.ts src/api/types.ts src/tracking/shift.ts --outDir .testbuild --target ES2019 --module ES2020 --moduleResolution bundler && node test/api.e2e.mjs"
+    "test": "vitest run",
+    "test:e2e": "tsc src/api/client.ts src/api/types.ts src/tracking/shift.ts --outDir .testbuild --target ES2019 --module ES2020 --moduleResolution bundler && node test/api.e2e.mjs",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.20",
@@ -34,7 +36,9 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^4.1.11",
     "typescript": "^5.7.2",
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "vitest": "^4.1.11"
   }
 }

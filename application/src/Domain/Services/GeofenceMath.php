@@ -54,15 +54,21 @@ final class GeofenceMath
      */
     private static function pointInPolygon(float $lat, float $lon, array $polygon): bool
     {
-        $n = count($polygon);
+        // Sólo vértices reales: una geometría de círculo ({lat,lon,radius_m})
+        // guardada bajo shape='polygon' tiene 3 claves y pasaría el mínimo de
+        // abajo, pero al indexarla por 0..n-1 da NULL y `coord()` moría con un
+        // TypeError. Eso tumbaba el procesador entero de la empresa.
+        $ring = array_values(array_filter($polygon, 'is_array'));
+
+        $n = count($ring);
         if ($n < 3) {
             return false;
         }
 
         $inside = false;
         for ($i = 0, $j = $n - 1; $i < $n; $j = $i++) {
-            [$latI, $lonI] = self::coord($polygon[$i]);
-            [$latJ, $lonJ] = self::coord($polygon[$j]);
+            [$latI, $lonI] = self::coord($ring[$i]);
+            [$latJ, $lonJ] = self::coord($ring[$j]);
 
             // ¿El rayo horizontal en `lat` cruza el segmento i–j? Si cruza, alterna.
             $straddles = ($latI > $lat) !== ($latJ > $lat);

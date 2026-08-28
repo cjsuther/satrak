@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true">
+  <testsuites>
+    <testsuite name="unit">
+      <directory>tests/Unit</directory>
+    </testsuite>
+  </testsuites>
+
+  <source>
+    <include>
+      <directory suffix=".php">src</directory>
+    </include>
+    <exclude>
+      <!-- Los controladores necesitan un request/response HTTP completo: se
+           cubren con tests de integración, no unitarios. -->
+      <directory suffix=".php">src/Application/Controllers</directory>
+      <file>src/dependencies.php</file>
+      <file>src/routes.php</file>
+      <file>src/settings.php</file>
+    </exclude>
+  </source>
+</phpunit>
