@@ -11,6 +11,9 @@
 # Build de deploy (se regenera con build-deploy.sh)
 /dist/
 
+# Config del deploy en servidor (rutas/credenciales del host)
+/deploy/deploy.config.sh
+
 # Sistema
 .DS_Store
 Thumbs.db
