@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- Fondo del ícono adaptativo (Android 8+). Es el navy de Satrak: el
+         lanzador recorta este fondo con la forma que use el equipo, y el pin
+         viaja aparte en ic_launcher_foreground. Estaba en blanco, que es el
+         valor por defecto de Capacitor. -->
+    <color name="ic_launcher_background">#04091A</color>
 </resources>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#081A31"/><stop offset="1" stop-color="#04091A"/>
+    </linearGradient>
+    <linearGradient id="cuerpo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B4E85"/><stop offset="1" stop-color="#0E2C50"/>
+    </linearGradient>
+  </defs>
+  <!-- Fondo a sangre y opaco: iOS rechaza íconos con canal alfa y aplica su
+       propia máscara redondeada, así que no se dibujan esquinas acá. -->
+  <rect width="512" height="512" fill="url(#fondo)"/>
+  <g transform="translate(256 288) scale(0.78) translate(-256 -268)">
+  <!-- Pin: gota con la punta abajo. Mismo trazo que el favicon del sitio,
+       reescalado a un lienzo cuadrado. -->
+  <path d="M256 434 C 178 312, 116 254, 116 148 a 140 140 0 1 1 280 0 C 396 254, 334 312, 256 434 Z"
+        fill="url(#cuerpo)"/>
+
+  <!-- Órbita satelital: la elipse inclinada que cruza el pin. Es lo que
+       distingue la marca de cualquier pin de mapa genérico. -->
+  <ellipse cx="256" cy="148" rx="170" ry="55" fill="none" stroke="#1FE0C4"
+           stroke-width="19" transform="rotate(-25 256 148)"/>
+
+  <!-- Anillo navy: separa el núcleo de la órbita para que a 48 px no se
+       fusionen en una mancha. -->
+  <circle cx="256" cy="148" r="52" fill="none" stroke="#0A2342" stroke-width="24"/>
+  <circle cx="256" cy="148" r="41" fill="#1FE0C4"/>
+  </g>
+</svg>
