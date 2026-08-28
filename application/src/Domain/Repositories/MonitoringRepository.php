@@ -119,7 +119,7 @@ final class MonitoringRepository
     {
         $stmt = $this->db->prepare(
             'SELECT d.id, d.imei, d.label, d.kind, v.plate,
-                    TRIM(CONCAT(COALESCE(pe.last_name, ""), ", ", COALESCE(pe.first_name, ""))) AS person_name
+                    TRIM(CONCAT(COALESCE(pe.first_name, ""), " ", COALESCE(pe.last_name, ""))) AS person_name
              FROM devices d
              LEFT JOIN device_vehicle_assignments a
                     ON a.device_id = d.id AND a.unassigned_at IS NULL

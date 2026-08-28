@@ -146,13 +146,15 @@ final class MapController
     private function personUnit(array $r, int $companyId, array $posts): array
     {
         $personId = $r['person_id'] !== null ? (int) $r['person_id'] : null;
-        $name = trim(($r['person_last_name'] ?? '') . ', ' . ($r['person_first_name'] ?? ''));
+        // Nombre apellido en toda la interfaz: es como se lee un nombre y es lo
+        // que muestra la app. El «apellido, nombre» queda sólo para los ORDER BY.
+        $name = trim(($r['person_first_name'] ?? '') . ' ' . ($r['person_last_name'] ?? ''));
 
         return [
             'device_id' => (int) $r['device_id'],
             'kind'      => 'person',
             'person_id' => $personId,
-            'name'      => trim($name, ', ') ?: ($r['label'] ?? $r['imei']),
+            'name'      => $name ?: ($r['label'] ?? $r['imei']),
             'plate'     => null,
             'label'     => $r['label'] ?? $r['imei'],
             'lat'       => (float) $r['lat'],

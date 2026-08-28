@@ -229,7 +229,7 @@ final class ReportService
 
         $map = [];
         foreach ($stmt->fetchAll() as $r) {
-            $map[(int) $r['id']] = trim($r['last_name'] . ', ' . $r['first_name']);
+            $map[(int) $r['id']] = trim($r['first_name'] . ' ' . $r['last_name']);
         }
 
         return $map;

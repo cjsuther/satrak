@@ -33,7 +33,7 @@
         <optgroup label="Personas">
           {% for d in persons %}
             <option value="{{ d.id }}" {{ d.id == device_id ? 'selected' : '' }}>
-              {{ d.person_name|trim(', ') ?: (d.label ?? d.imei) }}
+              {{ d.person_name ?: (d.label ?? d.imei) }}
             </option>
           {% endfor %}
         </optgroup>

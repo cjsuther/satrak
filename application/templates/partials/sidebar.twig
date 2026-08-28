@@ -12,7 +12,6 @@
       <span class="nav-section">Mi portal</span>
       <a class="nav-item {{ current_path starts with '/portal/actividad' or current_path == '/portal' ? 'is-active' : '' }}" href="/portal/actividad"><span class="nav-ico">↻</span> Mi actividad</a>
       <a class="nav-item {{ current_path starts with '/portal/ubicacion' ? 'is-active' : '' }}" href="/portal/ubicacion"><span class="nav-ico">◈</span> Mi última posición</a>
-      <a class="nav-item {{ current_path starts with '/portal/perfil' ? 'is-active' : '' }}" href="/portal/perfil"><span class="nav-ico">☉</span> Mi perfil</a>
     {% elseif current_user.role == 'person' %}
       {# Portal de la persona: acotado a lo propio. Igual que el del conductor,
          se decide por ROL y no por can(), porque el super admin tiene '*'. #}
@@ -20,7 +19,6 @@
       <a class="nav-item {{ current_path == '/mi' ? 'is-active' : '' }}" href="/mi"><span class="nav-ico">◎</span> Mi día</a>
       <a class="nav-item {{ current_path starts with '/mi/ubicacion' ? 'is-active' : '' }}" href="/mi/ubicacion"><span class="nav-ico">◈</span> Mi ubicación</a>
       <a class="nav-item {{ current_path starts with '/mi/misiones' ? 'is-active' : '' }}" href="/mi/misiones"><span class="nav-ico">➤</span> Mis misiones</a>
-      <a class="nav-item {{ current_path starts with '/mi/perfil' ? 'is-active' : '' }}" href="/mi/perfil"><span class="nav-ico">☉</span> Mi perfil</a>
     {% else %}
     <a class="nav-item {{ current_path == '/dashboard' ? 'is-active' : '' }}" href="/dashboard">
       <span class="nav-ico">◎</span> Dashboard
@@ -78,6 +76,15 @@
       <a class="nav-item {{ current_path starts with '/auditoria' ? 'is-active' : '' }}" href="/auditoria"><span class="nav-ico">❘</span> Auditoría</a>
     {% endif %}
     {% endif %}{# /driver.portal else #}
+
+    {# Mi cuenta: fuera del if/else de roles, para que todos tengan el acceso a
+       su perfil en el mismo lugar. Cerrar sesión vive en el menú del topbar. #}
+    <span class="nav-section">Mi cuenta</span>
+    {% set profile_path = current_user.role == 'driver' ? '/portal/perfil'
+                        : (current_user.role == 'person' ? '/mi/perfil' : '/perfil') %}
+    <a class="nav-item {{ current_path starts with profile_path ? 'is-active' : '' }}" href="{{ profile_path }}">
+      <span class="nav-ico">☉</span> Mi perfil
+    </a>
   </nav>
 
   <div class="sidebar-foot mono">v1 · {{ app.env }}</div>

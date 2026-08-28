@@ -176,6 +176,10 @@ small{ font-size:var(--fs-sm); }
 .user-menu details{ position:relative; }
 .user-menu summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:.6rem; }
 .user-menu summary::-webkit-details-marker{ display:none; }
+/* Indicador de desplegable: el marcador nativo está oculto y en mobile el
+   summary queda reducido al avatar, sin ninguna pista de que se puede abrir. */
+.user-menu summary::after{ content:'⌄'; color:var(--slate); font-size:14px; line-height:1; margin-left:.1rem; }
+.user-menu details[open] summary::after{ content:'⌃'; }
 .user-avatar{ width:36px; height:36px; border-radius:50%; background:var(--teal); color:var(--navy);
   display:grid; place-items:center; font-weight:700; font-family:var(--font-display); }
 .user-meta{ display:flex; flex-direction:column; line-height:1.1; }
