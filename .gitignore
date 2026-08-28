@@ -18,3 +18,7 @@
 .DS_Store
 Thumbs.db
 *.swp
+
+# Tests
+application/.phpunit.cache/
+mobile/coverage/
