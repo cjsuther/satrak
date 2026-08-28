@@ -11,7 +11,7 @@ return [
     'telefono'    => '+54 9 2995 38-8574',
     'horario'     => 'Lunes a viernes de 9 a 18 h',
     'direccion'   => 'Neuquén, Argentina',
-    'plataforma_url' => '#', // URL futura del panel de clientes
+    'plataforma_url' => 'https://app.satrak.online', // Panel de clientes
     'redes' => [
         'instagram' => '#',
         'linkedin'  => '#',
