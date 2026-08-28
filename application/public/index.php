@@ -66,14 +66,26 @@ $app->add($container->get(CsrfMiddleware::class));
 $app->add(function (Request $request, $handler) use ($config): Response {
     $response = $handler->handle($request);
 
+    // OJO: en producción el servidor de Hostinger inyecta su propia CSP y PISA
+    // ésta; la que realmente llega al navegador es la de `public/.htaccess`.
+    // Se mantienen iguales a propósito: si tocás una, tocá la otra.
+    //
+    // MapLibre necesita `worker-src blob:` (levanta sus workers desde un blob)
+    // y `tiles.openfreemap.org` para estilo, glyphs, sprites y tiles. Ya no
+    // hace falta unpkg: las librerías se sirven desde /assets/vendor/.
     $csp = implode('; ', [
         "default-src 'self'",
-        "img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com",
-        "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
-        "script-src 'self' https://unpkg.com",
+        "img-src 'self' data: blob: https://tiles.openfreemap.org",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "script-src 'self'",
+        "worker-src 'self' blob:",
+        "child-src 'self' blob:",
         "font-src 'self' https://fonts.gstatic.com",
-        "connect-src 'self'",
+        "connect-src 'self' https://tiles.openfreemap.org",
         "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "object-src 'none'",
     ]);
 
     return $response

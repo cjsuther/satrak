@@ -166,12 +166,22 @@ final class GeofenceRepository
         string $geometryJson,
         array $vehicleIds,
         bool $active,
-        array $personIds = []
+        array $personIds = [],
+        ?string $shape = null
     ): void {
         $this->db->beginTransaction();
         try {
-            $upd = $this->db->prepare('UPDATE geofences SET name = ?, geometry = ?, active = ? WHERE id = ?');
-            $upd->execute([$name, $geometryJson, $active ? 1 : 0, $id]);
+            // `shape` se actualiza junto con la geometría: si se reemplaza un
+            // círculo por un polígono y la forma quedara en 'circle',
+            // GeofenceMath leería {lat,lon,radius_m} de una lista de vértices y
+            // la geocerca dejaría de contener a nadie, sin ningún error.
+            if ($shape !== null) {
+                $upd = $this->db->prepare('UPDATE geofences SET name = ?, shape = ?, geometry = ?, active = ? WHERE id = ?');
+                $upd->execute([$name, $shape, $geometryJson, $active ? 1 : 0, $id]);
+            } else {
+                $upd = $this->db->prepare('UPDATE geofences SET name = ?, geometry = ?, active = ? WHERE id = ?');
+                $upd->execute([$name, $geometryJson, $active ? 1 : 0, $id]);
+            }
             $this->replaceTargets($id, $vehicleIds, $personIds);
             $this->db->commit();
         } catch (\Throwable $e) {

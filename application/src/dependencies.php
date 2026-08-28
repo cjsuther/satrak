@@ -124,6 +124,23 @@ return [
             'year'     => (int) date('Y'),
         ]);
 
+        // asset('/assets/js/map.js') → '/assets/js/map.js?v=1756400000'
+        //
+        // El deploy es un scp sobre archivos con el mismo nombre, así que sin
+        // versionar la URL el navegador se queda con la copia vieja. Pasó al
+        // migrar a MapLibre: el CSS nuevo estaba en el servidor y el navegador
+        // seguía usando el anterior, con lo cual el contenedor del mapa quedaba
+        // con altura 0 y no se veía nada.
+        //
+        // La versión es el mtime del archivo: cambia sola en cada deploy y no
+        // hay que acordarse de nada.
+        $env->addFunction(new \Twig\TwigFunction('asset', static function (string $path) use ($config): string {
+            $file = dirname(__DIR__) . '/public' . $path;
+            $stamp = is_file($file) ? filemtime($file) : null;
+
+            return $stamp ? $path . '?v=' . $stamp : $path;
+        }));
+
         // Token CSRF como string y como campo oculto listo para usar.
         $env->addFunction(new \Twig\TwigFunction('csrf_token', fn () => $c->get(Csrf::class)->token()));
         $env->addFunction(new \Twig\TwigFunction('csrf_field', function () use ($c): string {

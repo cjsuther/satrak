@@ -22,3 +22,7 @@ Thumbs.db
 # Tests
 application/.phpunit.cache/
 mobile/coverage/
+
+# Build de assets de la plataforma (los archivos generados en
+# application/public/assets/vendor/ SÍ se versionan: el hosting no corre build).
+application/node_modules/

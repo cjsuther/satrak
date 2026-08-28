@@ -23,6 +23,8 @@ use Slim\Views\Twig;
  * empresa y auditado (§9.2). La geometría llega serializada desde el editor de
  * mapa y se valida en servidor.
  */
+use Satrak\Domain\Services\ZonePayload;
+
 final class GeofenceController
 {
     public function __construct(
@@ -74,16 +76,17 @@ final class GeofenceController
             return $this->renderForm($response->withStatus(422), 'create', $d, $companyId, $errors);
         }
 
+        [$shape, $geometry] = $this->resolveGeometry($d);
         $id = $this->geofences->create(
             $companyId,
             trim((string) $d['name']),
-            (string) $d['shape'],
-            (string) $d['geometry'],
+            $shape,
+            $geometry,
             $this->vehicleIdsScoped($d, $companyId),
             $this->personIdsScoped($d, $companyId)
         );
         $this->audit->log($companyId, $this->auth->id(), 'geofence.create', 'geofence', $id,
-            ['name' => trim((string) $d['name']), 'shape' => $d['shape']], client_ip());
+            ['name' => trim((string) $d['name']), 'shape' => $shape], client_ip());
         $this->flash->success('Geocerca creada.');
 
         return $this->redirect($response, '/geocercas');
@@ -123,13 +126,15 @@ final class GeofenceController
             return $this->renderForm($response->withStatus(422), 'edit', array_merge($g, $d), $companyId, $errors);
         }
 
+        [$shape, $geometry] = $this->resolveGeometry($d);
         $this->geofences->update(
             (int) $g['id'],
             trim((string) $d['name']),
-            (string) $d['geometry'],
+            $geometry,
             $this->vehicleIdsScoped($d, $companyId),
             ($d['active'] ?? '1') === '1',
-            $this->personIdsScoped($d, $companyId)
+            $this->personIdsScoped($d, $companyId),
+            $shape
         );
         $this->audit->log($companyId, $this->auth->id(), 'geofence.update', 'geofence', (int) $g['id'], null, client_ip());
         $this->flash->success('Geocerca actualizada.');
@@ -199,6 +204,30 @@ final class GeofenceController
      * @param array<string,mixed> $d
      * @return array<string,string>
      */
+    /**
+     * Forma y geometría definitivas a guardar.
+     *
+     * Prioriza el FeatureCollection del editor; si no vino (se guardó sin
+     * tocar el dibujo), se conservan `shape`/`geometry` tal como estaban.
+     *
+     * @param array<string,mixed> $d
+     * @return array{0:string,1:string} [shape, geometryJson]
+     */
+    private function resolveGeometry(array $d): array
+    {
+        $zones = trim((string) ($d['zones'] ?? ''));
+        if ($zones !== '') {
+            $payload = ZonePayload::fromFeatureCollection($zones);
+            if (!$payload->failed()) {
+                // Todo lo que dibuja el editor es un polígono, incluidos los
+                // círculos y rectángulos.
+                return ['polygon', (string) json_encode($payload->polygon)];
+            }
+        }
+
+        return [(string) ($d['shape'] ?? 'polygon'), (string) ($d['geometry'] ?? '')];
+    }
+
     private function validate(array $d): array
     {
         $errors = [];
@@ -208,6 +237,20 @@ final class GeofenceController
         $shape = $d['shape'] ?? '';
         if (!in_array($shape, ['circle', 'polygon'], true)) {
             $errors['shape'] = 'Forma inválida.';
+        }
+
+        // Contrato nuevo: si el editor mandó el FeatureCollection, ése manda.
+        // `geometry`/`shape` se siguen aceptando para no romper una geocerca
+        // que se guarda sin tocar el dibujo (ver geofence.js) ni un cliente
+        // viejo con la página cacheada.
+        $zones = trim((string) ($d['zones'] ?? ''));
+        if ($zones !== '') {
+            $payload = ZonePayload::fromFeatureCollection($zones);
+            if ($payload->failed()) {
+                $errors['geometry'] = $payload->error;
+            }
+
+            return $errors;
         }
 
         $geom = json_decode((string) ($d['geometry'] ?? ''), true);

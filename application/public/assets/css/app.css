@@ -313,7 +313,19 @@ small{ font-size:var(--fs-sm); }
 .map-panel-head{ padding:var(--space-4); border-bottom:1px solid var(--surface-line); display:flex; flex-direction:column; gap:var(--space-3); }
 .panel-title{ font-size:var(--fs-body); margin:0; }
 .map-canvas{ position:relative; min-height:560px; }
-.leaflet-map{ position:absolute; inset:0; height:100%; width:100%; background:var(--surface-2); }
+.vector-map{ position:absolute; inset:0; height:100%; width:100%; background:var(--surface-2); }
+
+/* MapLibre pinta su UI en claro; acá el chrome de la app es oscuro. Sólo se
+   retocan los controles y el popup, no los tiles. */
+.maplibregl-ctrl-group{ background:var(--surface-2); border:1px solid var(--surface-line); box-shadow:none; }
+.maplibregl-ctrl-group button+button{ border-top:1px solid var(--surface-line); }
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon{ filter:invert(1) hue-rotate(180deg); opacity:.75; }
+.maplibregl-ctrl-attrib{ background:rgba(10,35,66,.75); }
+.maplibregl-ctrl-attrib a{ color:var(--mist); }
+.maplibregl-popup-content{ background:var(--surface-2); color:var(--mist);
+  border:1px solid var(--surface-line); border-radius:var(--radius-sm); padding:.7rem .85rem; }
+.maplibregl-popup-tip{ border-top-color:var(--surface-2); border-bottom-color:var(--surface-2); }
+.maplibregl-popup-close-button{ color:var(--slate); font-size:1.1rem; padding:0 .35rem; }
 
 .map-filters{ display:flex; flex-wrap:wrap; gap:.35rem; }
 .chip{ font:inherit; font-size:var(--fs-mono); color:var(--slate); background:transparent;
@@ -385,9 +397,21 @@ tr.is-ack{ opacity:.6; }
 
 /* Editor de geocercas */
 .geofence-editor{ margin-top:var(--space-4); }
-.geofence-tools{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-4); margin-bottom:var(--space-3); }
-.geofence-radius{ display:inline-flex; align-items:center; gap:var(--space-2); }
-.geofence-map{ position:relative; height:380px; border-radius:var(--radius-sm); overflow:hidden; }
+.geofence-tools{ display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2); margin-bottom:var(--space-2); }
+.geofence-hint{ font-size:var(--fs-sm); margin:0 0 var(--space-3); }
+.geofence-map{ position:relative; height:440px; border-radius:var(--radius-sm); overflow:hidden; }
+
+/* Barra de modos de dibujo. El activo se marca con el teal de la identidad:
+   qué herramienta está en la mano tiene que leerse de un vistazo. */
+.draw-tool{
+  font:inherit; font-size:var(--fs-sm); cursor:pointer;
+  padding:.4rem .8rem; border-radius:var(--radius-sm);
+  background:var(--surface-2); color:var(--mist);
+  border:1px solid var(--surface-line);
+  transition:background var(--t), color var(--t), border-color var(--t);
+}
+.draw-tool:hover{ border-color:var(--teal-line); }
+.draw-tool.is-active{ background:var(--teal-soft); color:var(--teal); border-color:var(--teal-line); }
 
 /* Checkboxes en grilla (alcance / canales) */
 .checkbox-grid{ display:flex; flex-wrap:wrap; gap:.5rem; }

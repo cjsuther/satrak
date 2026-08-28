@@ -1,0 +1,15 @@
+{
+  "name": "satrak-plataforma-assets",
+  "private": true,
+  "description": "Build de los assets JS de la plataforma. La app es PHP+Twig y no tiene bundler: esto sólo empaqueta las librerías de mapa (que se publican como ESM) en un archivo servido desde el propio dominio, para no depender de un CDN ni tener que aflojar la CSP.",
+  "scripts": {
+    "build:vendor": "node build/vendor.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "maplibre-gl": "^5.24.0",
+    "terra-draw": "^1.32.3",
+    "terra-draw-maplibre-gl-adapter": "^1.4.1",
+    "@turf/boolean-point-in-polygon": "^7.4.0"
+  }
+}

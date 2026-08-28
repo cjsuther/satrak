@@ -36,7 +36,7 @@ Options -Indexes
     # HSTS: dos años, subdominios incluidos. El sitio ya redirige todo a HTTPS.
     Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains"
 
-    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; script-src 'self' https://unpkg.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https://tiles.openfreemap.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://tiles.openfreemap.org; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
 </IfModule>
 
 # Bloquear acceso a archivos sensibles si quedaran dentro de public por error.

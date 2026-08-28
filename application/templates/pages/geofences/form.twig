@@ -2,8 +2,7 @@
 {% block title %}{{ mode == 'create' ? 'Nueva geocerca' : 'Editar geocerca' }}{% endblock %}
 
 {% block head %}
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="{{ asset('/assets/vendor/maplibre-gl.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -17,6 +16,9 @@
   {{ csrf_field() }}
   <input type="hidden" name="shape" value="{{ g.shape }}" data-shape>
   <input type="hidden" name="geometry" value='{{ g.geometry|default("") }}' data-geometry>
+  {# Contrato nuevo: la zona también viaja como FeatureCollection de GeoJSON.
+     El backend valida y convierte; `geometry` se mantiene por compatibilidad. #}
+  <input type="hidden" name="zones" value="" data-zones>
 
   <div class="form-grid">
     <label class="field">
@@ -24,16 +26,6 @@
       <input class="input" name="name" value="{{ g.name|default('') }}" required autofocus>
       {% if errors.name is defined %}<small class="field-error">{{ errors.name }}</small>{% endif %}
     </label>
-
-    {% if mode == 'create' %}
-      <label class="field">
-        <span class="field-label">Forma</span>
-        <select class="input" data-shape-select>
-          <option value="circle" {{ g.shape == 'circle' ? 'selected' }}>Círculo (centro + radio)</option>
-          <option value="polygon" {{ g.shape == 'polygon' ? 'selected' }}>Polígono (vértices)</option>
-        </select>
-      </label>
-    {% endif %}
 
     {% if mode == 'edit' %}
       <label class="field">
@@ -47,15 +39,16 @@
   </div>
 
   <div class="geofence-editor">
-    <div class="geofence-tools">
-      <span class="muted" data-draw-hint>Hacé clic en el mapa para definir la geocerca.</span>
-      <span class="geofence-radius" data-radius-wrap hidden>
-        Radio: <input type="range" min="100" max="5000" step="50" value="600" data-radius>
-        <span class="mono" data-radius-label>600 m</span>
-      </span>
+    <div class="geofence-tools" role="group" aria-label="Herramientas de dibujo">
+      <button type="button" class="draw-tool" data-mode="polygon"   aria-pressed="true">Polígono</button>
+      <button type="button" class="draw-tool" data-mode="freehand"  aria-pressed="false">Mano alzada</button>
+      <button type="button" class="draw-tool" data-mode="circle"    aria-pressed="false">Círculo</button>
+      <button type="button" class="draw-tool" data-mode="rectangle" aria-pressed="false">Rectángulo</button>
+      <button type="button" class="draw-tool" data-mode="select"    aria-pressed="false">Seleccionar</button>
       <button type="button" class="btn btn-secondary btn-sm" data-clear>Limpiar</button>
     </div>
-    <div id="geofence-map" class="leaflet-map geofence-map"></div>
+    <p class="muted geofence-hint" data-draw-hint>Hacé clic para marcar cada vértice. Doble clic para cerrar.</p>
+    <div id="geofence-map" class="vector-map geofence-map"></div>
     {% if errors.geometry is defined %}<small class="field-error">{{ errors.geometry }}</small>{% endif %}
   </div>
 
@@ -84,7 +77,7 @@
         {% for p in people %}
           <label class="checkbox-pill">
             <input type="checkbox" name="person_ids[]" value="{{ p.id }}" {{ p.id in selectedPeopleIds ? 'checked' }}>
-            <span>{{ p.last_name }}, {{ p.first_name }}</span>
+            <span>{{ p.first_name }} {{ p.last_name }}</span>
           </label>
         {% else %}
           <span class="muted">No hay personas activas.</span>
@@ -101,7 +94,8 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="/assets/js/geofence.js" defer></script>
+  <script src="{{ asset('/assets/vendor/maplibre-gl.js') }}"></script>
+  <script src="{{ asset('/assets/vendor/terra-draw.js') }}"></script>
+  <script src="{{ asset('/assets/js/zonemap.js') }}"></script>
+  <script src="{{ asset('/assets/js/geofence.js') }}" defer></script>
 {% endblock %}

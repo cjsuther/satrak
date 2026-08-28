@@ -1,42 +1,34 @@
-/* Satrak — Mapa en vivo + historial/reproducción (Leaflet, vanilla). */
+/* Satrak — Mapa en vivo + historial/reproducción (MapLibre GL, vanilla).
+ *
+ * Tres modos, uno por pantalla: `live` (monitoreo), `history` (recorrido con
+ * reproducción) y `point` (una sola posición, para los portales).
+ *
+ * Migrado de Leaflet. La diferencia de fondo: las unidades ya NO son
+ * marcadores del DOM sino features de un source GeoJSON, y cada tick del
+ * polling llama a `setPoints()`, que por debajo es un `source.setData()` sobre
+ * el mismo source. Con un marcador por unidad, cien vehículos son cien nodos
+ * del DOM moviéndose; así es una sola capa que el GPU redibuja.
+ *
+ * El estado (en movimiento, fuera de puesto, sin señal…) viaja como propiedad
+ * de cada feature y lo resuelve una expresión de MapLibre en ZoneMap. Nada de
+ * tocar estilos unidad por unidad desde JS.
+ */
 (function () {
   'use strict';
 
   var mapEl = document.getElementById('map');
-  if (!mapEl || typeof L === 'undefined') return;
+  if (!mapEl || !window.SatrakZoneMap) return;
 
-  // Colores de estado (tokens de identidad).
-  var COLORS = {
-    // Flota
-    movimiento: '#1FE0C4', // teal
-    detenido:   '#6B7C93', // acero
-    alerta:     '#FFB23E', // ámbar
-    offline:    '#3A4A5E', // atenuado
-    // Personal — la ignición no aplica: lo que importa es si está donde debe.
-    en_puesto:      '#1FE0C4',
-    en_mision:      '#5AA9FF',
-    fuera_de_puesto:'#FFB23E',
-    activa:         '#6B7C93',
-    fuera_de_turno: '#3A4A5E',
-    sin_senal:      '#3A4A5E'
-  };
+  var ZM = window.SatrakZoneMap;
 
   var STATE_LABELS = {
     movimiento: 'en movimiento', detenido: 'detenido', offline: 'sin señal',
     en_puesto: 'en su puesto', en_mision: 'en misión', fuera_de_puesto: 'fuera de puesto',
     activa: 'activa', fuera_de_turno: 'fuera de turno', sin_senal: 'sin señal'
   };
-  var DEFAULT_CENTER = [-38.9516, -68.0591]; // Neuquén
-  var DEFAULT_ZOOM = 12;
 
-  function buildMap() {
-    var map = L.map(mapEl, { zoomControl: true }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-    return map;
-  }
+  /* Estados que se muestran apagados: no hay dato fresco de esa unidad. */
+  var FADED = { offline: 1, sin_senal: 1, fuera_de_turno: 1 };
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -51,39 +43,51 @@
     if (s < 60) return 'hace ' + s + ' s';
     var m = Math.round(s / 60);
     if (m < 60) return 'hace ' + m + ' min';
-    var h = Math.round(m / 60);
-    return 'hace ' + h + ' h';
+    return 'hace ' + Math.round(m / 60) + ' h';
   }
 
-  if (mapEl.dataset.mode === 'live') initLive();
-  else if (mapEl.dataset.mode === 'history') initHistory();
-  else if (mapEl.dataset.mode === 'point') initPoint();
+  /** Feature de punto. OJO: GeoJSON es [lon, lat], al revés que Satrak. */
+  function point(lon, lat, props) {
+    return { type: 'Feature', properties: props || {}, geometry: { type: 'Point', coordinates: [lon, lat] } };
+  }
+
+  function fc(features) { return { type: 'FeatureCollection', features: features || [] }; }
+
+  var mode = mapEl.dataset.mode;
+  if (mode === 'live') initLive();
+  else if (mode === 'history') initHistory();
+  else if (mode === 'point') initPoint();
 
   /* ======================================================================
-   * MODO PUNTO — una sola posición (portal: "mi última posición")
+   * MODO PUNTO — una sola posición (portales)
    * ==================================================================== */
   function initPoint() {
     var lat = parseFloat(mapEl.dataset.lat);
     var lon = parseFloat(mapEl.dataset.lon);
     if (isNaN(lat) || isNaN(lon)) return;
-    var map = buildMap();
-    map.setView([lat, lon], 15);
-    var m = L.circleMarker([lat, lon], { radius: 9, weight: 2, color: '#050E1F', fillColor: COLORS.movimiento, fillOpacity: 1 }).addTo(map);
-    if (mapEl.dataset.label) m.bindPopup(mapEl.dataset.label).openPopup();
+
+    var zm = ZM.create(mapEl, { center: [lon, lat], zoom: 15 });
+    if (!zm) return;
+
+    zm.setPoints(fc([point(lon, lat, { state: 'movimiento', selected: true })]));
+    if (mapEl.dataset.label) {
+      zm.map.on('load', function () {
+        zm.showPopup([lon, lat], '<div class="map-popup">' + esc(mapEl.dataset.label) + '</div>');
+      });
+    }
   }
 
   /* ======================================================================
-   * MODO VIVO — polling + marcadores por estado
+   * MODO VIVO — polling y unidades como source GeoJSON
    * ==================================================================== */
   function initLive() {
-    var map = buildMap();
     var endpoint = mapEl.dataset.endpoint;
     var pollMs = (parseInt(mapEl.dataset.poll, 10) || 15) * 1000;
 
-    var markers = {};            // device_id -> circleMarker
-    var units = [];              // último snapshot
+    var units = [];
+    var byId = {};
     var filter = 'all';
-    var kindFilter = 'all';      // all | vehicle | person
+    var kindFilter = 'all';
     var search = '';
     var fitted = false;
     var lastSyncMs = 0;
@@ -92,35 +96,38 @@
     var syncEl = document.querySelector('[data-sync-label]');
     var searchEl = document.querySelector('[data-unit-search]');
 
+    var zm = ZM.create(mapEl, {
+      onFeatureClick: function (feature, lngLat) {
+        var u = byId[feature.properties.device_id];
+        if (u) zm.showPopup(lngLat, popupHtml(u));
+      }
+    });
+    if (!zm) return;
+
     if (searchEl) searchEl.addEventListener('input', function () {
       search = searchEl.value.trim().toLowerCase();
-      renderList();
+      refresh();
     });
-    document.querySelectorAll('[data-filter]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('[data-filter]').forEach(function (b) { b.classList.remove('is-active'); });
-        btn.classList.add('is-active');
-        filter = btn.dataset.filter;
-        renderList();
-        applyMarkerVisibility();
+    bindFilters('[data-filter]', function (btn) { filter = btn.dataset.filter; });
+    bindFilters('[data-kind-filter]', function (btn) { kindFilter = btn.dataset.kindFilter; });
+
+    function bindFilters(selector, apply) {
+      document.querySelectorAll(selector).forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll(selector).forEach(function (b) { b.classList.remove('is-active'); });
+          btn.classList.add('is-active');
+          apply(btn);
+          refresh();
+        });
       });
-    });
-    document.querySelectorAll('[data-kind-filter]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('[data-kind-filter]').forEach(function (b) { b.classList.remove('is-active'); });
-        btn.classList.add('is-active');
-        kindFilter = btn.dataset.kindFilter;
-        renderList();
-        applyMarkerVisibility();
-      });
-    });
+    }
 
     function unitKey(u) {
       return ((u.name || '') + ' ' + (u.plate || '') + ' ' + (u.label || '')).toLowerCase();
     }
 
     // 'movimiento' y 'detenido' sólo tienen sentido para flota; el filtro de
-    // estado no debe esconder personas cuando el usuario filtra por tipo.
+    // estado no debe esconder personas cuando se filtra por tipo.
     function matchesState(u) {
       if (filter === 'all') return true;
       if (filter === 'offline') return u.state === 'offline' || u.state === 'sin_senal';
@@ -150,40 +157,41 @@
       }
 
       return '<div class="map-popup">' + head + body +
-        '<span class="mono muted">' + (when ? ago(Date.now() - when.getTime()) : 's/d') + '</span>' +
-        '</div>';
+        '<span class="mono muted">' + (when ? ago(Date.now() - when.getTime()) : 's/d') + '</span></div>';
     }
 
-    function upsertMarker(u) {
-      var m = markers[u.device_id];
-      if (!m) {
-        m = L.circleMarker([u.lat, u.lon], { radius: 8, weight: 2, color: '#050E1F' });
-        m.addTo(map);
-        markers[u.device_id] = m;
-      } else {
-        m.setLatLng([u.lat, u.lon]);
-      }
-      var faded = u.state === 'offline' || u.state === 'sin_senal' || u.state === 'fuera_de_turno';
-      m.setStyle({ fillColor: COLORS[u.state] || COLORS.detenido, fillOpacity: faded ? 0.45 : 1 });
-      m.bindPopup(popupHtml(u));
-      m._satUnit = u;
-    }
-
-    function applyMarkerVisibility() {
-      Object.keys(markers).forEach(function (id) {
-        var m = markers[id];
-        var el = m.getElement();
-        if (el) el.style.display = matches(m._satUnit) ? '' : 'none';
+    /** Las unidades filtradas, como features. Lo que no matchea no se manda. */
+    function toFeatures(list) {
+      return list.map(function (u) {
+        return point(u.lon, u.lat, {
+          device_id: String(u.device_id),
+          state: u.state || 'detenido',
+          label: u.name || u.plate || u.label || '',
+          muted: !!FADED[u.state]
+        });
       });
     }
 
-    function renderList() {
-      if (!listEl) return;
+    function refresh() {
       var shown = units.filter(matches);
+      zm.setPoints(fc(toFeatures(shown)));
+      renderList(shown);
+    }
+
+    function renderList(shown) {
+      if (!listEl) return;
       if (!shown.length) {
         listEl.innerHTML = '<li class="unit-empty muted">Sin unidades para el filtro.</li>';
         return;
       }
+      var colors = ZM.COLORS;
+      var stateColor = {
+        movimiento: colors.teal, en_puesto: colors.teal, en_mision: colors.blue,
+        fuera_de_puesto: colors.amber, alerta: colors.amber,
+        detenido: colors.slate, activa: colors.slate,
+        offline: colors.dim, sin_senal: colors.dim, fuera_de_turno: colors.dim
+      };
+
       listEl.innerHTML = shown.map(function (u) {
         var when = parseTs(u.ts);
         var sub = (u.kind || 'vehicle') === 'person'
@@ -192,35 +200,33 @@
           : (u.speed || 0) + ' km/h · ' + esc(u.driver || 'no identif.');
         var icon = (u.kind || 'vehicle') === 'person' ? '☺' : '⛟';
 
-        return '<li class="unit-item" data-go="' + u.device_id + '">' +
-          '<span class="unit-dot" style="background:' + (COLORS[u.state] || COLORS.detenido) + '"></span>' +
+        return '<li class="unit-item" data-go="' + esc(u.device_id) + '">' +
+          '<span class="unit-dot" style="background:' + (stateColor[u.state] || colors.slate) + '"></span>' +
           '<span class="unit-main"><span class="unit-name">' + icon + ' ' + esc(u.name || u.plate || u.label) + '</span>' +
           '<span class="unit-sub mono muted">' + sub + '</span></span>' +
           '<span class="unit-when mono muted">' + (when ? ago(Date.now() - when.getTime()) : '—') + '</span></li>';
       }).join('');
+
       listEl.querySelectorAll('[data-go]').forEach(function (li) {
         li.addEventListener('click', function () {
-          var m = markers[li.dataset.go];
-          if (m) { map.setView(m.getLatLng(), Math.max(map.getZoom(), 14)); m.openPopup(); }
+          var u = byId[li.dataset.go];
+          if (!u) return;
+          zm.map.easeTo({ center: [u.lon, u.lat], zoom: Math.max(zm.map.getZoom(), 14) });
+          zm.showPopup([u.lon, u.lat], popupHtml(u));
         });
       });
     }
 
     function render(snapshot) {
       units = snapshot || [];
-      var present = {};
-      units.forEach(function (u) { present[u.device_id] = true; upsertMarker(u); });
-      // Saca marcadores de dispositivos que ya no vienen.
-      Object.keys(markers).forEach(function (id) {
-        if (!present[id]) { map.removeLayer(markers[id]); delete markers[id]; }
-      });
+      byId = {};
+      units.forEach(function (u) { byId[String(u.device_id)] = u; });
+
       if (!fitted && units.length) {
-        var bounds = L.latLngBounds(units.map(function (u) { return [u.lat, u.lon]; }));
-        map.fitBounds(bounds.pad(0.2));
+        zm.fitTo(fc(toFeatures(units)), 70);
         fitted = true;
       }
-      renderList();
-      applyMarkerVisibility();
+      refresh();
     }
 
     function setSync(ok) {
@@ -228,13 +234,12 @@
       if (ok) { lastSyncMs = Date.now(); syncEl.textContent = 'sincronizado recién'; }
       else { syncEl.textContent = 'sin conexión — reintentando…'; }
     }
-    // Refresco del "hace Xs" cada segundo.
     setInterval(function () {
       if (syncEl && lastSyncMs) syncEl.textContent = 'última sync ' + ago(Date.now() - lastSyncMs);
     }, 1000);
 
     function tick() {
-      fetch(endpoint, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+      fetch(endpoint, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (!res.ok) throw new Error(res.error || 'error');
@@ -252,7 +257,6 @@
    * MODO HISTORIAL — traza + reproducción
    * ==================================================================== */
   function initHistory() {
-    var map = buildMap();
     var deviceId = mapEl.dataset.device;
     var from = mapEl.dataset.from;
     var to = mapEl.dataset.to;
@@ -267,13 +271,22 @@
     var readout = document.querySelector('[data-replay-readout]');
 
     var points = [];
-    var cursor = null;     // marcador móvil
+    var marks = [];        // hitos fijos: inicio, fin y paradas
     var idx = 0;
     var playing = false;
     var speed = 1;
     var timer = null;
 
-    fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+    var zm = ZM.create(mapEl, {
+      onFeatureClick: function (feature, lngLat) {
+        if (feature.properties.popup) {
+          zm.showPopup(lngLat, '<div class="map-popup">' + feature.properties.popup + '</div>');
+        }
+      }
+    });
+    if (!zm) return;
+
+    fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (res) {
         if (!res.ok) throw new Error(res.error || 'error');
@@ -289,28 +302,27 @@
         if (readout) readout.textContent = 'Sin posiciones en el rango';
         return;
       }
-      var latlngs = points.map(function (p) { return [p.lat, p.lon]; });
 
-      L.polyline(latlngs, { color: COLORS.movimiento, weight: 4, opacity: 0.85 }).addTo(map);
+      var coords = points.map(function (p) { return [p.lon, p.lat]; });
+      var linea = fc([{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } }]);
+      zm.setTrack(linea);
 
-      // Inicio (teal) y fin (acero).
-      L.circleMarker(latlngs[0], { radius: 7, color: '#050E1F', weight: 2, fillColor: COLORS.movimiento, fillOpacity: 1 })
-        .addTo(map).bindPopup('Inicio');
-      L.circleMarker(latlngs[latlngs.length - 1], { radius: 7, color: '#050E1F', weight: 2, fillColor: COLORS.detenido, fillOpacity: 1 })
-        .addTo(map).bindPopup('Fin');
+      marks = [];
+      marks.push(point(points[0].lon, points[0].lat, { state: 'movimiento', popup: 'Inicio' }));
+      var last = points[points.length - 1];
+      marks.push(point(last.lon, last.lat, { state: 'detenido', popup: 'Fin' }));
 
-      // Paradas: inicio de cada detención (velocidad 0 tras estar en movimiento).
+      // Paradas: primer punto detenido tras haber estado en movimiento.
       for (var i = 1; i < points.length; i++) {
         if ((points[i].speed || 0) === 0 && (points[i - 1].speed || 0) > 0) {
-          L.circleMarker([points[i].lat, points[i].lon],
-            { radius: 5, color: '#050E1F', weight: 1, fillColor: COLORS.alerta, fillOpacity: 0.9 })
-            .addTo(map).bindPopup('Parada · ' + esc(points[i].ts));
+          marks.push(point(points[i].lon, points[i].lat, {
+            state: 'alerta', popup: 'Parada · ' + esc(points[i].ts)
+          }));
         }
       }
 
-      map.fitBounds(L.latLngBounds(latlngs).pad(0.15));
+      zm.fitTo(linea, 60);
 
-      cursor = L.circleMarker(latlngs[0], { radius: 9, color: '#fff', weight: 2, fillColor: COLORS.movimiento, fillOpacity: 1 }).addTo(map);
       if (bar) bar.hidden = false;
       if (scrub) scrub.max = String(points.length - 1);
       seek(0);
@@ -318,10 +330,17 @@
       wireTripList();
     }
 
+    /** El cursor de reproducción es una feature más del mismo source. */
+    function paint() {
+      var p = points[idx];
+      var cursor = point(p.lon, p.lat, { state: 'movimiento', selected: true });
+      zm.setPoints(fc(marks.concat([cursor])));
+    }
+
     function seek(i) {
       idx = Math.max(0, Math.min(points.length - 1, i));
       var p = points[idx];
-      if (cursor) cursor.setLatLng([p.lat, p.lon]);
+      paint();
       if (scrub) scrub.value = String(idx);
       if (readout) readout.textContent = (p.ts ? String(p.ts).slice(11, 19) : '') + ' · ' + (p.speed || 0) + ' km/h';
     }
@@ -338,6 +357,7 @@
       if (toggleBtn) toggleBtn.textContent = '❚❚';
       timer = setInterval(step, 700 / speed);
     }
+
     function pause() {
       playing = false;
       if (toggleBtn) toggleBtn.textContent = '▶';
@@ -368,13 +388,16 @@
             var t = parseTs(p.ts);
             return t && (!a || t >= a) && (!b || t <= b);
           });
-          if (seg.length) {
-            map.fitBounds(L.latLngBounds(seg.map(function (p) { return [p.lat, p.lon]; })).pad(0.15));
-            // Posiciona la reproducción al inicio del viaje.
-            var start = points.indexOf(seg[0]);
-            pause();
-            seek(start < 0 ? 0 : start);
-          }
+          if (!seg.length) return;
+
+          zm.fitTo(fc([{
+            type: 'Feature', properties: {},
+            geometry: { type: 'LineString', coordinates: seg.map(function (p) { return [p.lon, p.lat]; }) }
+          }]), 60);
+
+          var start = points.indexOf(seg[0]);
+          pause();
+          seek(start < 0 ? 0 : start);
         });
       });
     }
